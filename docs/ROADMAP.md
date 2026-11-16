@@ -11,7 +11,7 @@
 - **Розкладка на хості:** `/srv/opencloud/data` → `/var/lib/opencloud`; конфіг `opencloud.yaml` — один версіонований Swarm Secret у `/etc/opencloud/opencloud.yaml` (1.3, 4.1).
 - **Entra ID, MS 365 Education A1:** вхід лише для співробітників через App Roles; якщо фільтр не спрацює — вхід лише для користувачів, створених в OpenCloud вручну (2.2). PoC Entra виконується одразу після 1.3.
 - **Секрети:** SOPS → один Swarm Secret; `reconcile-sops-secrets.sh` з хешованими іменами лишається за стандартом (4.1). `IDM_ADMIN_PASSWORD` для входу не використовується; break-glass — другий admin-акаунт в Entra.
-- **Ресурси:** без жорсткого ліміту 2560M і без CPU-ліміту; ліміт пам'яті = 70% RAM хоста (5.1).
+- **Ресурси:** без жорсткого ліміту 2560M і без CPU-ліміту; 70% RAM хоста — орієнтир для production (5.1). Для dev власник проєкту обрав мінімальний ліміт; конкретне значення потрібно визначити та перевірити на практиці.
 - **Бекап:** сервіс зупиняється на час `borg create` (`trap EXIT` повертає його), без прапорців `--xattrs` / `--acls`; restore — процедура в runbook без скрипта, невдалий restore лишає сервіс зупиненим (6.2, 6.3).
 - **Скрипти:** п'ять замість десяти — `preflight-host`, `init-volumes`, `reconcile-sops-secrets`, `deploy-orchestrator-swarm`, `backup`.
 - **Поза Фазою 1:** групи з токена, CSP/`frame-ancestors` і AC-5 (переходять у Фазу 2 проєкту з Drupal), desktop/mobile-клієнти, міграція з Google Drive.
@@ -61,7 +61,7 @@
 - **Ціль:** Скрипт перевіряє локальну готовність файлової системи ноди до PosixFS без доступу до секретів.
 - **Залежності:** 1.1
 - **Кроки реалізації:**
-  1. Створити `scripts/preflight-host.sh <data-path>` (типово `/srv/opencloud/data`): каталог існує; ФС — XFS або ext4; запис дозволений; вільного місця достатньо; `user.*` xattr працює (тимчасовий файл у каталозі, який видаляється через `trap`). Окрім цього тимчасового файлу, скрипт нічого не змінює.
+  1. Створити `scripts/preflight-host.sh <data-path>` (типово `/srv/opencloud/data`): каталог існує; ФС — XFS або ext4; запис дозволений; щонайменше 10 GiB вільного місця для тестового файлу (для робочих даних потрібен додатковий запас); `user.*` xattr працює (тимчасовий файл у каталозі, який видаляється через `trap`). Окрім цього тимчасового файлу, скрипт нічого не змінює.
   2. Вивести рекомендоване значення `OPENCLOUD_MEM_LIMIT` = 70% від `MemTotal` (інформаційно, для `env.<env>.enc`).
   3. Не читати env-файли та SOPS і не звертатися до Docker. Мітку Swarm-ноди `storage=primary` перевіряє оркестратор (5.3): `docker node inspect` працює лише на manager, а storage-нода може бути worker.
 - **Файли / Директорії:** `scripts/preflight-host.sh`
@@ -314,7 +314,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Залежності:** 4.1
 - **Кроки реалізації:**
   1. Образ із `OPENCLOUD_IMAGE` і `OPENCLOUD_IMAGE_TAG`; `replicas: 1`; `placement.constraints: [node.labels.storage == primary]`; `update_config` (`parallelism: 1`, `order: stop-first`, `failure_action: rollback`, `delay: 10s`); `restart_policy` (`on-failure`, `delay: 5s`; `max_attempts: 5` залишити лише свідомо, бо після п'яти збоїв сервіс лишиться зупиненим).
-  2. Ресурси: без жорсткого ліміту 2560M і без CPU-ліміту; `limits.memory` = `${OPENCLOUD_MEM_LIMIT}` — 70% RAM хоста (значення дає `preflight-host.sh`); reservation 512M / 0.5 CPU. Після навантаження з 3.3 підтвердити, що 70% достатньо `[перевірити]`.
+  2. Ресурси: без жорсткого ліміту 2560M і без CPU-ліміту; `limits.memory` = `${OPENCLOUD_MEM_LIMIT}` — орієнтир для production 70% RAM хоста (значення дає `preflight-host.sh`), для dev — мінімальний ліміт, який ще потрібно визначити; reservation 512M / 0.5 CPU. Після навантаження з 3.3 підтвердити ліміти `[перевірити]`.
   3. Монтування: `/srv/opencloud/data` → `/var/lib/opencloud`; `opencloud.yaml` як external Swarm Secret (ім'я з мапінгу) у `/etc/opencloud/opencloud.yaml` (`uid` і `mode` з 4.1); за потреби статичний `config/proxy.yaml` у `/etc/opencloud/proxy.yaml` лише для читання. Окремого host-каталогу конфігу немає, якщо це підтвердила задача 1.3.
   4. Non-root: UID процесу в офіційному образі узгодити з `init-volumes.sh` (5.2). Власного Dockerfile немає.
   5. Traefik labels додаються в 5.4, healthcheck — у 6.1.

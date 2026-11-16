@@ -30,7 +30,7 @@ Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, 
 
 - `docs/SPEC.md`, `docs/ROADMAP.md`: requirements and implementation plan.
 - `CHANGELOG.md` and `docs/changelogs/`: changelog index and active volume.
-- `scripts/`, `config/`, `.github/workflows/`: reserved for implementation; Compose/Swarm files and CI are planned.
+- `scripts/preflight-host.sh`: storage preflight; `config/`, `.github/workflows/`, Compose/Swarm files and CI are planned.
 
 ## Important Documents
 
@@ -39,7 +39,7 @@ Use [SPEC.md](SPEC.md), [ROADMAP.md](ROADMAP.md) and any applicable ADRs as auth
 ## Implementation Rules for AI Agents
 
 - Read the relevant source sections and acceptance criteria before changes; preserve unrelated work and keep changes minimal.
-- Planned scripts: 1a `preflight-host` checks the host without env, SOPS or Docker; 1b `init-volumes` and `reconcile-sops-secrets` prepare deployment; category 2 `backup` handles maintenance and backup. The orchestrator coordinates deployment.
+- Script categories: 1a `preflight-host` checks the host without env, SOPS or Docker; planned 1b `init-volumes` and `reconcile-sops-secrets` prepare deployment; category 2 `backup` handles maintenance and backup. The orchestrator coordinates deployment.
 - Follow the roadmap's Bash, idempotency, secret handling and YAML requirements. When applicable, check with `shellcheck`, `yamllint`, `docker compose config -q` and `docker stack config`; run only checks supported by the current files and environment.
 - Record observed results separately from assumptions; update this file only after material architecture changes or as specified by the roadmap.
 
