@@ -1,0 +1,4 @@
+---
+directives:
+  connect-src:
+    - https://login.microsoftonline.com

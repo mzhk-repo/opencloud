@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-16 — Allow Entra discovery in local PoC CSP
+
+- **Context:** The Entra PoC login page could not fetch the provider's discovery document.
+- **Change:** Added a local Compose CSP extension allowing connections to `https://login.microsoftonline.com` while retaining the default directives.
+- **Verification:** Entra discovery returned HTTP 200 with CORS allowed. A separate network-isolated OpenCloud 7.2.5 container emitted the expected CSP with the Entra origin and existing default restrictions.
+- **Risks:** Browser login and token validation remain unverified; the original container must be recreated to apply the change.
+- **Rollback:** Remove the CSP bind mount and `PROXY_CSP_CONFIG_FILE_LOCATION` from the local Entra override.
+
 ## 2026-11-16 — Local Entra manual-user PoC preparation
 
 - **Context:** Start task 2.1 with manually created OpenCloud users matched to Entra UPN, as requested.

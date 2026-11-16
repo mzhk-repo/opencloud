@@ -9,6 +9,7 @@ services:
       PROXY_OIDC_INSECURE: "false"
       PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD: jwt
       PROXY_OIDC_SKIP_USER_INFO: "true"
+      PROXY_CSP_CONFIG_FILE_LOCATION: /etc/opencloud/entra-csp.yaml
       PROXY_AUTOPROVISION_ACCOUNTS: "false"
       PROXY_USER_OIDC_CLAIM: upn
       PROXY_USER_CS3_CLAIM: username
@@ -21,3 +22,10 @@ services:
       WEBFINGER_WEB_OIDC_CLIENT_SCOPES: >-
         openid profile email offline_access
         api://${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}/access_as_user
+    volumes:
+      - type: bind
+        source: ./config/entra-csp.yaml
+        target: /etc/opencloud/entra-csp.yaml
+        read_only: true
+        bind:
+          create_host_path: false
