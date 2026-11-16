@@ -46,3 +46,27 @@ docker compose --env-file .env.example ps
 Open `https://localhost:9200` on the Docker host and sign in as `admin` using the password from initialization. For a remote dev host, use an SSH local port forward to its `127.0.0.1:9200`; do not expose this test instance publicly. Upload a test file, then inspect its `user.oc.*` xattrs on the host and inspect state paths inside the container. Stop with `docker compose --env-file .env.example down`; the bind-mounted state remains.
 
 Check a prepared storage directory with `./scripts/preflight-host.sh /srv/opencloud/data`. The check needs `findmnt`, `df`, `awk`, `mktemp` and Python 3. It requires at least 10 GiB free for the planned test file; provision additional space for real data and overhead. The printed 70% memory reference does not set a limit; choose a separate dev limit after measuring actual usage.
+
+## Local Entra PoC
+
+This opt-in override is for a loopback-only test with manually provisioned users. OpenCloud 7.2.5's access-token verifier does not enforce the token audience; do not expose this PoC or use it for production. UPN is mutable and is not a safe permanent authorization identifier.
+
+Before switching, create a test user in the internal-IdP UI with an OpenCloud username matching the Entra user's UPN. The Entra app must have the registered SPA redirect URIs, enabled `access_as_user` scope and consent, v2 access tokens, optional `upn` access-token claim, and a test user assigned. The override does not create users. Put `ENTRA_TENANT_ID` and `ENTRA_CLIENT_ID` in `.local/entra-poc.env`, using `.env.example` as a template; the file is ignored by Git.
+
+To apply the PoC on the local host:
+
+```bash
+export OPENCLOUD_LOCAL_UID="$(id -u)" OPENCLOUD_LOCAL_GID="$(id -g)"
+docker compose --env-file .env.example --env-file .local/entra-poc.env \
+  -f docker-compose.yml -f docker-compose.entra.yml config -q
+docker compose --env-file .env.example --env-file .local/entra-poc.env \
+  -f docker-compose.yml -f docker-compose.entra.yml up -d
+```
+
+To return to the internal IdP, recreate the service without the override:
+
+```bash
+docker compose --env-file .env.example -f docker-compose.yml up -d
+```
+
+Do not rerun `opencloud init` or delete local state when switching. Keep tokens, passwords and configuration contents out of diagnostics.

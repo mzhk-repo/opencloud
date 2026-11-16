@@ -1,0 +1,23 @@
+---
+# Local Entra PoC only; use with docker-compose.yml.
+services:
+  opencloud:
+    environment:
+      OC_EXCLUDE_RUN_SERVICES: idp
+      OC_OIDC_ISSUER: >-
+        https://login.microsoftonline.com/${ENTRA_TENANT_ID:?Set ENTRA_TENANT_ID}/v2.0
+      PROXY_OIDC_INSECURE: "false"
+      PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD: jwt
+      PROXY_OIDC_SKIP_USER_INFO: "true"
+      PROXY_AUTOPROVISION_ACCOUNTS: "false"
+      PROXY_USER_OIDC_CLAIM: upn
+      PROXY_USER_CS3_CLAIM: username
+      GRAPH_USERNAME_MATCH: none
+      WEB_OIDC_CLIENT_ID: ${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}
+      WEB_OIDC_SCOPE: >-
+        openid profile email offline_access
+        api://${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}/access_as_user
+      WEBFINGER_WEB_OIDC_CLIENT_ID: ${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}
+      WEBFINGER_WEB_OIDC_CLIENT_SCOPES: >-
+        openid profile email offline_access
+        api://${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}/access_as_user

@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-16 — Local Entra manual-user PoC preparation
+
+- **Context:** Start task 2.1 with manually created OpenCloud users matched to Entra UPN, as requested.
+- **Change:** Added an opt-in local Compose override with JWT verification, access-token claims, disabled provisioning and placeholders for Entra identifiers.
+- **Verification:** Merged Compose configuration passed `config -q`; tenant OIDC discovery returned the expected issuer and a JWKS endpoint. Authentication requires the tenant configuration and a real assigned test account.
+- **Risks:** OpenCloud 7.2.5 access-token validation does not enforce audience in its verifier; UPN is mutable. The override is restricted to a local PoC and requires further security assessment before use beyond it.
+- **Rollback:** Start the local Compose service without the Entra override; do not reinitialize or remove state.
+
 ## 2026-11-16 — Isolated file access check
 
 - **Context:** Follow-up to the fresh configuration volume startup check.
