@@ -2,7 +2,7 @@
 
 ## Project Summary
 
-Phase 1 plans a university file store for up to 1,000 staff using OpenCloud. This repository currently contains planning documents; implementation and runtime acceptance are pending.
+Phase 1 plans a university file store for up to 1,000 staff using OpenCloud. A local instance has been started; deployment and runtime acceptance remain pending.
 
 ## Key Decisions
 
@@ -49,7 +49,7 @@ The internal state layout, required configuration backup and OIDC claim mapping 
 
 ## State layout
 
-Pending local runtime inspection: identify user files, idm, NATS KV, search indexes and whether indexes rebuild; verify config writes and secret recovery. Local Compose uses `.local/opencloud/data` and a read-only `.local/opencloud/config/opencloud.yaml` mount; these are not yet runtime-validated.
+Local inspection: `.local/opencloud/data` maps to `/var/lib/opencloud`; PosixFS uses `storage/users`, identity data includes `idm/idm.boltdb`, NATS state uses `nats/jetstream`, and Bleve data appears under `search/bleve`. `user.oc.id` was readable on the uploaded PDF. Compose mounts `opencloud.yaml` read-only over a writable Docker volume at `/etc/opencloud`; metadata did not change after typical UI actions. On an isolated data copy with a fresh config volume, the user confirmed login and file access; no extra config entries remained. Transient writes, SOPS/Swarm secret recovery and index rebuild remain unverified.
 
 ## Open Questions
 
