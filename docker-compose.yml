@@ -1,0 +1,25 @@
+---
+services:
+  opencloud:
+    image: ${OPENCLOUD_IMAGE:?Set OPENCLOUD_IMAGE}:${OPENCLOUD_IMAGE_TAG:?Set OPENCLOUD_IMAGE_TAG}
+    user: "${OPENCLOUD_LOCAL_UID:-1000}:${OPENCLOUD_LOCAL_GID:-1000}"
+    ports:
+      - "127.0.0.1:9200:9200"
+    environment:
+      OC_URL: https://localhost:9200
+      OC_INSECURE: "true"
+      PROXY_HTTP_ADDR: 0.0.0.0:9200
+      STORAGE_USERS_DRIVER: posix
+      STORAGE_USERS_ID_CACHE_STORE: nats-js-kv
+    volumes:
+      - type: bind
+        source: ./.local/opencloud/data
+        target: /var/lib/opencloud
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.local/opencloud/config/opencloud.yaml
+        target: /etc/opencloud/opencloud.yaml
+        read_only: true
+        bind:
+          create_host_path: false

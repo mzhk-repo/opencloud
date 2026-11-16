@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-16 — Local PosixFS Compose setup
+
+- **Context:** Roadmap task 1.3 prepares a local OpenCloud instance and requires runtime inspection of its state.
+- **Change:** Added a loopback-only Compose service, guarded first-time initialization instructions and a pending state-layout entry.
+- **Verification:** Docker Compose configuration rendered successfully; YAML parsed, Git ignore rules cover local config and data, and `git diff --check` passed. Docker daemon access was denied.
+- **Risks:** Container startup, login, uploads, xattrs, read-only config mount and actual state layout remain unverified; local self-signed TLS settings are for isolated testing only.
+- **Rollback:** Remove `docker-compose.yml` and revert the related documentation changes; retain any existing local state until its owner decides otherwise.
+
 ## 2026-11-16 — Storage host preflight
 
 - **Context:** Roadmap task 1.2 checks storage readiness without Docker or secrets.

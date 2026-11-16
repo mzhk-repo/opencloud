@@ -30,7 +30,7 @@ Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, 
 
 - `docs/SPEC.md`, `docs/ROADMAP.md`: requirements and implementation plan.
 - `CHANGELOG.md` and `docs/changelogs/`: changelog index and active volume.
-- `scripts/preflight-host.sh`: storage preflight; `config/`, `.github/workflows/`, Compose/Swarm files and CI are planned.
+- `scripts/preflight-host.sh`: storage preflight; `docker-compose.yml`: isolated local setup. Swarm and CI are planned.
 
 ## Important Documents
 
@@ -46,6 +46,10 @@ Use [SPEC.md](SPEC.md), [ROADMAP.md](ROADMAP.md) and any applicable ADRs as auth
 ## Known Assumptions
 
 The internal state layout, required configuration backup and OIDC claim mapping are unverified. The roadmap's SOPS-to-Swarm-Secret design and backup scope depend on the local state-layout investigation.
+
+## State layout
+
+Pending local runtime inspection: identify user files, idm, NATS KV, search indexes and whether indexes rebuild; verify config writes and secret recovery. Local Compose uses `.local/opencloud/data` and a read-only `.local/opencloud/config/opencloud.yaml` mount; these are not yet runtime-validated.
 
 ## Open Questions
 
