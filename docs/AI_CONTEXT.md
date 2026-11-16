@@ -45,7 +45,7 @@ Use [SPEC.md](SPEC.md), [ROADMAP.md](ROADMAP.md) and any applicable ADRs as auth
 
 ## Known Assumptions
 
-The roadmap's SOPS-to-Swarm-Secret design and backup scope depend on the local state-layout investigation. Local Entra PoC override: manual users, `upn` → `username`, no autoprovisioning. OpenCloud 7.2.5 does not enforce access-token audience in its verifier; UPN is mutable. Keep this test loopback-only. Entra login and token claims are unverified.
+The roadmap's SOPS-to-Swarm-Secret design and backup scope depend on the local state-layout investigation. Local Entra PoC: manual `upn` → `username` login and file access confirmed; autoprovisioning is prepared only for an isolated copy because 7.2.5 can change group memberships. Audience is not enforced and UPN is mutable. Keep this test loopback-only.
 
 ## State layout
 

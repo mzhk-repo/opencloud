@@ -1,5 +1,29 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-16 — Isolated Entra autoprovisioning PoC preparation
+
+- **Context:** Task 2.1 requires testing a new Entra user without manual provisioning.
+- **Change:** Added an opt-in Compose override and instructions using an isolated copy with UPN as the provisioned username.
+- **Verification:** Rendered Compose configuration confirms separate data/config mounts, loopback port 19200 and the intended provisioning settings. A real new-account login and repeat-login acceptance are pending.
+- **Risks:** OpenCloud 7.2.5 autoprovisioning can change existing group memberships; UPN is mutable and access-token audience is not enforced. Use only an isolated copy.
+- **Rollback:** Stop the separate PoC project; the manual-user service and original state are unaffected by the override.
+
+## 2026-11-16 — Manual Entra account PoC confirmed
+
+- **Context:** Local Entra PoC uses a manually created OpenCloud account and UPN matching.
+- **Change:** Recorded the user's successful account mapping and file access in AI context.
+- **Verification:** The user confirmed the mapped account, file access and repeat login work.
+- **Risks:** Automatic provisioning and audience enforcement remain unverified; mutable UPN remains a security risk. The PoC is loopback-only.
+- **Rollback:** Revert the AI context update.
+
+## 2026-11-16 — Local Microsoft sign-in reported
+
+- **Context:** Follow-up to the local Entra CSP change.
+- **Change:** Recorded the user's reported successful Microsoft sign-in in AI context.
+- **Verification:** The local container is running and the login page returned HTTP 200; the user reported successful sign-in through Microsoft 365.
+- **Risks:** OpenCloud account mapping, file access and token audience enforcement are not yet validated; the PoC remains loopback-only.
+- **Rollback:** Revert the AI context update.
+
 ## 2026-11-16 — Allow Entra discovery in local PoC CSP
 
 - **Context:** The Entra PoC login page could not fetch the provider's discovery document.

@@ -70,3 +70,47 @@ docker compose --env-file .env.example -f docker-compose.yml up -d
 ```
 
 Do not rerun `opencloud init` or delete local state when switching. Keep tokens, passwords and configuration contents out of diagnostics.
+
+## Isolated autoprovisioning PoC
+
+Use only a test account assigned to the Entra application and absent from the copied OpenCloud users. Autoprovisioning in 7.2.5 also updates user attributes and synchronizes group memberships: a missing `groups` claim can remove existing memberships. Run this PoC only on a separate copy, never on the existing state. The `upn` and `name` access-token claims are required; their availability for a new account is unverified. The audience and mutable UPN risks described above still apply.
+
+Add SPA redirect URIs `https://localhost:19200/`, `https://localhost:19200/oidc-callback.html`, and `https://localhost:19200/oidc-silent-redirect.html` in Entra. The source service is briefly stopped while copying. Run from the repository root; if any command fails, stop and investigate without reinitializing or deleting state:
+
+```bash
+( set -eu
+  test ! -e .local/autoprovision-poc
+  mkdir -p .local/autoprovision-poc/data .local/autoprovision-poc/config
+  trap 'docker compose --env-file .env.example start opencloud' EXIT
+  docker compose --env-file .env.example stop opencloud
+  rsync -aX .local/opencloud/data/ .local/autoprovision-poc/data/
+  cp -p .local/opencloud/config/opencloud.yaml .local/autoprovision-poc/config/opencloud.yaml
+  docker compose --env-file .env.example start opencloud
+  trap - EXIT
+)
+```
+
+Then start the separate Compose project:
+
+```bash
+export OPENCLOUD_LOCAL_UID="$(id -u)" OPENCLOUD_LOCAL_GID="$(id -g)"
+docker compose -p opencloud-autoprovision-poc \
+  --env-file .env.example --env-file .local/entra-poc.env \
+  -f docker-compose.yml -f docker-compose.entra.yml \
+  -f docker-compose.autoprovision.yml config -q
+docker compose -p opencloud-autoprovision-poc \
+  --env-file .env.example --env-file .local/entra-poc.env \
+  -f docker-compose.yml -f docker-compose.entra.yml \
+  -f docker-compose.autoprovision.yml up -d
+```
+
+Open `https://localhost:19200/` in a private window; for a remote host forward port 19200 over SSH. Sign in as the new assigned test account twice and check its files. The copy and its config contain sensitive data and are ignored by Git; retain them only for the duration of this PoC. Do not send tokens, logs containing claims, or passwords.
+
+To stop the isolated instance without removing its copied state:
+
+```bash
+docker compose -p opencloud-autoprovision-poc \
+  --env-file .env.example --env-file .local/entra-poc.env \
+  -f docker-compose.yml -f docker-compose.entra.yml \
+  -f docker-compose.autoprovision.yml stop
+```
