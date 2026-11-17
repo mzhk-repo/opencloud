@@ -73,7 +73,9 @@ Do not rerun `opencloud init` or delete local state when switching. Keep tokens,
 
 ## Isolated autoprovisioning PoC
 
-Use only a test account assigned to the Entra application and absent from the copied OpenCloud users. Autoprovisioning in 7.2.5 also updates user attributes and synchronizes group memberships: a missing `groups` claim can remove existing memberships. Run this PoC only on a separate copy, never on the existing state. The `upn` and `name` access-token claims are required; their availability for a new account is unverified. The audience and mutable UPN risks described above still apply.
+Use only test accounts assigned to the Entra application and absent from the copied OpenCloud users. The override maps the `opencloudAdmin` and `opencloudUser` Entra app roles via the `roles` claim and disables Graph's default role assignment. Autoprovisioning in 7.2.5 also updates user attributes and synchronizes group memberships: a missing `groups` claim can remove existing memberships. Run this PoC only on a separate copy, never on the existing state. The `upn` and `name` access-token claims are required. The audience and mutable UPN risks described above still apply.
+
+To administer existing accounts on the isolated copy with its internal IdP, recreate only the isolated project using `-f docker-compose.yml -f docker-compose.isolated-internal.yml`, sign in as its existing local administrator at port 19200, and remove only the intended test users. Keep the local administrator. Return to Entra using the three-file command below. Account deletion affects the copied state and may affect those users' personal data; retain anything needed before deletion.
 
 Add SPA redirect URIs `https://localhost:19200/`, `https://localhost:19200/oidc-callback.html`, and `https://localhost:19200/oidc-silent-redirect.html` in Entra. The source service is briefly stopped while copying. Run from the repository root; if any command fails, stop and investigate without reinitializing or deleting state:
 

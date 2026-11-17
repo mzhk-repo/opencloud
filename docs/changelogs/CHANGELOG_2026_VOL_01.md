@@ -1,5 +1,21 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-17 — Prepare isolated Entra role mapping
+
+- **Context:** The user reported successful isolated autoprovisioning after adding the `email` access-token claim; task 2.2 tests staff and administrator roles.
+- **Change:** Prepared OIDC role assignment and disabled default Graph role assignment in the isolated Compose override; added an isolated internal-IdP override for account administration and documented the reported result.
+- **Verification:** OpenCloud 7.2.5 source maps `opencloudAdmin` to admin and `opencloudUser` to user. Compose rendering is checked; actual role assignment, token claims and denial cases remain pending.
+- **Risks:** The override has not been deployed. Autoprovisioning can change group memberships; audience validation and UPN risks remain. Isolated accounts have not been removed.
+- **Rollback:** Remove the three role-related environment entries from the isolated override and recreate only the isolated service.
+
+## 2026-11-16 — Isolated Entra autoprovisioning diagnosis
+
+- **Context:** A new Entra user could not complete login in the isolated autoprovisioning PoC.
+- **Change:** Recorded diagnostic findings; no runtime configuration or user state was changed.
+- **Verification:** OpenCloud logged HTTP 400 while updating a user through LibreGraph. The received access-token claims contained `upn` and `name`, but no nonempty `email`; matching UPN and display-name bytes were found in the isolated IDM data. Values and tokens were not printed.
+- **Risks:** Missing `email` is a hypothesis for the rejected update; the Graph response does not establish its cause. The copied state may already contain a partially created account.
+- **Rollback:** Remove this diagnostic entry if no longer needed.
+
 ## 2026-11-16 — Isolated Entra autoprovisioning PoC preparation
 
 - **Context:** Task 2.1 requires testing a new Entra user without manual provisioning.

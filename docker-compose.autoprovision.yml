@@ -9,6 +9,9 @@ services:
       PROXY_HTTP_ADDR: 0.0.0.0:19200
       PROXY_AUTOPROVISION_ACCOUNTS: "true"
       PROXY_AUTOPROVISION_CLAIM_USERNAME: upn
+      PROXY_ROLE_ASSIGNMENT_DRIVER: oidc
+      PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM: roles
+      GRAPH_ASSIGN_DEFAULT_USER_ROLE: "false"
     volumes:
       - type: bind
         source: ./.local/autoprovision-poc/data
