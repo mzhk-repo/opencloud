@@ -45,7 +45,7 @@ Use [SPEC.md](SPEC.md), [ROADMAP.md](ROADMAP.md) and any applicable ADRs as auth
 
 ## Known Assumptions
 
-Local Entra PoC: manual `upn` → `username` login and file access confirmed; user reports successful isolated autoprovisioning after adding `email` access-token claim. Task 2.2 role override is prepared, not yet applied. Autoprovisioning can change group memberships; audience is not enforced and UPN is mutable. Keep this test loopback-only.
+Local Entra PoC: user reports successful admin/staff group-role mapping and denial for a user outside both groups; that denied user was still provisioned. User observed 13 OpenCloud groups including the Entra GUIDs. Autoprovisioning can change group memberships; audience is not enforced and UPN is mutable. Keep this test loopback-only.
 
 ## State layout
 

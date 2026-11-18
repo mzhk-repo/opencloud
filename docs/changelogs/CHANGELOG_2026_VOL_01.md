@@ -1,5 +1,45 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-18 — Isolated Entra group authorization tested
+
+- **Context:** Test group claims with Entra app-role assignment requirements disabled on the isolated PoC.
+- **Change:** Recorded the user's observed role mapping, denied-user provisioning and internal groups in AI context.
+- **Verification:** The user reports admin and staff received their expected roles, a user outside both groups was denied but appeared without a role, and 13 internal groups included the two Entra GUIDs. Running container configuration confirms OIDC role mapping from `groups` with autoprovisioning enabled.
+- **Risks:** Code inspection shows provisioning and group synchronization occur before role assignment, and synchronization can remove memberships. Live removal behavior, group overage and audience validation remain untested.
+- **Rollback:** Revert the AI context documentation update; PoC state is unchanged by this entry.
+
+## 2026-11-18 — Isolated Entra group-claim PoC preparation
+
+- **Context:** The user requested group IDs for administrator and staff role mapping and disabled Entra assignment requirements and app roles for the test.
+- **Change:** Added an isolated Compose override and a role-mapping template; the user-specific mapping remains outside Git. After the user confirmed test-user cleanup, enabled the override only on the isolated service.
+- **Verification:** Compose rendering and GUID mapping validated; isolated service runs with read-only mapping and returned HTTP 200, with no startup errors observed. Actual authorization and negative scenarios require browser tests.
+- **Risks:** Autoprovisioning can create and remove group memberships. Token audience and UPN risks remain; the Entra changes apply to every instance using the application registration.
+- **Rollback:** Recreate the isolated project without the group override and restore the app's role and assignment settings in Entra if returning to the previous scenario.
+
+## 2026-11-18 — Prepare isolated group-claim investigation
+
+- **Context:** The user requested internal login on the isolated PoC for test-user cleanup before testing Entra Security groups.
+- **Change:** Recreated only the isolated Compose service with its internal IdP; the original instance remained stopped.
+- **Verification:** The isolated service uses its separate data directory, returned HTTP 200 and advertised `https://localhost:19200` as its issuer.
+- **Risks:** Users have not been removed; group claims, autoprovisioning group synchronization, audience enforcement and overage handling remain untested.
+- **Rollback:** Recreate the isolated project using the Entra and autoprovisioning Compose overrides after the planned account cleanup.
+
+## 2026-11-18 — Isolated Entra role scenarios confirmed
+
+- **Context:** Task 2.2 validates administrator, staff and student access on the isolated PoC.
+- **Change:** Recorded the user's confirmed role scenarios in the roadmap and AI context.
+- **Verification:** The user confirmed the administrator creates a Space and assigns a Manager, staff receive the user role, and a student cannot sign in.
+- **Risks:** Bulk staff assignment, final access mode and break-glass validation remain pending; token audience, mutable UPN and group synchronization risks remain.
+- **Rollback:** Revert the task 2.2 checklist and AI context updates.
+
+## 2026-11-17 — Isolated role PoC tested
+
+- **Context:** The user tested administrator, staff and student accounts on the isolated Entra PoC.
+- **Change:** Recorded the reported sign-in results and remaining student-denial confirmation in AI context.
+- **Verification:** The user reports the tests work; Docker inspection confirms OIDC role assignment, `roles` claim, autoprovisioning and disabled default Graph role assignment in the running isolated service.
+- **Risks:** Explicit confirmation of student denial and role permissions is pending; autoprovisioning group synchronization, token audience and mutable UPN remain risks.
+- **Rollback:** Revert the AI context update.
+
 ## 2026-11-17 — Prepare isolated Entra role mapping
 
 - **Context:** The user reported successful isolated autoprovisioning after adding the `email` access-token claim; task 2.2 tests staff and administrator roles.

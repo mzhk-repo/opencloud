@@ -1,0 +1,8 @@
+---
+role_assignment:
+  oidc_role_mapper:
+    role_mapping:
+      - role_name: admin
+        claim_value: REPLACE_WITH_ADMIN_GROUP_OBJECT_ID
+      - role_name: user
+        claim_value: REPLACE_WITH_STAFF_GROUP_OBJECT_ID
