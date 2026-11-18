@@ -36,87 +36,32 @@ For a new local instance, run from the repository root. The guard stops if the l
 
 If initialization fails or leaves partial state, stop and investigate; do not rerun it on existing data. The example runs the container as the current Linux UID/GID. Docker user namespace remapping can change host ownership requirements; resolve access for both mounts before proceeding.
 
-After successful initialization, start the local service as the same user:
-
-```bash
-export OPENCLOUD_LOCAL_UID="$(id -u)" OPENCLOUD_LOCAL_GID="$(id -g)"
-docker compose --env-file .env.example config -q
-docker compose --env-file .env.example up -d
-docker compose --env-file .env.example ps
-```
-
-Open `https://localhost:9200` on the Docker host and sign in as `admin` using the password from initialization. For a remote dev host, use an SSH local port forward to its `127.0.0.1:9200`; do not expose this test instance publicly. Upload a test file, then inspect its `user.oc.*` xattrs on the host and inspect state paths inside the container. Stop with `docker compose --env-file .env.example down`; the bind-mounted state remains.
+After initialization, prepare the Entra settings and group-to-role mapping as described below before starting the main service. Use the internal login override for local administration.
 
 Check a prepared storage directory with `./scripts/preflight-host.sh /srv/opencloud/data`. The check needs `findmnt`, `df`, `awk`, `mktemp` and Python 3. It requires at least 10 GiB free for the planned test file; provision additional space for real data and overhead. The printed 70% memory reference does not set a limit; choose a separate dev limit after measuring actual usage.
 
-## Local Entra PoC
+## Local Entra and internal login
 
-This opt-in override is for a loopback-only test with manually provisioned users. OpenCloud 7.2.5's access-token verifier does not enforce the token audience; do not expose this PoC or use it for production. UPN is mutable and is not a safe permanent authorization identifier.
+The main Compose configuration uses Entra with JIT provisioning and group-to-role mapping at `https://localhost:9200`. OpenCloud 7.2.5 does not enforce the access-token audience and UPN is mutable; keep this instance on loopback until those risks are resolved. Entra must supply `upn`, `name`, `email` and group claims. Configure the SPA redirect URIs for port 9200 and the `access_as_user` scope.
 
-Before switching, create a test user in the internal-IdP UI with an OpenCloud username matching the Entra user's UPN. The Entra app must have the registered SPA redirect URIs, enabled `access_as_user` scope and consent, v2 access tokens, optional `upn` access-token claim, and a test user assigned. The override does not create users. Put `ENTRA_TENANT_ID` and `ENTRA_CLIENT_ID` in `.local/entra-poc.env`, using `.env.example` as a template; the file is ignored by Git.
+Put `ENTRA_TENANT_ID` and `ENTRA_CLIENT_ID` in the ignored `.local/entra-poc.env` using `.env.example` as a template. Place the group mapping in `.local/opencloud/config/proxy.yaml`, using `config/proxy.groups.example.yaml` as a template; the existing isolated PoC mapping can be copied there. Do not commit the local mapping or environment file.
 
-To apply the PoC on the local host:
+JIT synchronizes group membership at login and can remove manually assigned memberships, including when the group claim is absent. A denied user can still be provisioned. See [OpenCloud issue #4058](https://github.com/opencloud-eu/opencloud/issues/4058); group overage and final deployment remain unverified.
 
-```bash
-export OPENCLOUD_LOCAL_UID="$(id -u)" OPENCLOUD_LOCAL_GID="$(id -g)"
-docker compose --env-file .env.example --env-file .local/entra-poc.env \
-  -f docker-compose.yml -f docker-compose.entra.yml config -q
-docker compose --env-file .env.example --env-file .local/entra-poc.env \
-  -f docker-compose.yml -f docker-compose.entra.yml up -d
-```
-
-To return to the internal IdP, recreate the service without the override:
-
-```bash
-docker compose --env-file .env.example -f docker-compose.yml up -d
-```
-
-Do not rerun `opencloud init` or delete local state when switching. Keep tokens, passwords and configuration contents out of diagnostics.
-
-## Isolated autoprovisioning PoC
-
-For the earlier App Role PoC, use test accounts assigned to the Entra application and absent from the copied OpenCloud users. The override maps the `opencloudAdmin` and `opencloudUser` Entra app roles via the `roles` claim and disables Graph's default role assignment. Autoprovisioning in 7.2.5 also updates user attributes and synchronizes group memberships: a missing `groups` claim can remove existing memberships. Run this PoC only on a separate copy, never on the existing state. The `upn` and `name` access-token claims are required. The audience and mutable UPN risks described above still apply.
-
-The subsequent group-claim PoC adds `docker-compose.groups.yml` to map Entra group IDs to roles using an ignored local `proxy.yaml`. The project retains the official image and its built-in synchronization: Entra GUID groups can be created locally, and memberships absent from the configured claim can be removed on login. This includes manually assigned memberships and a missing claim. Independent control is requested in [OpenCloud issue #4058](https://github.com/opencloud-eu/opencloud/issues/4058); its proposed switch is not available in 7.2.5. Group overage, token audience validation and the final deployment remain unverified.
-
-To administer existing accounts on the isolated copy with its internal IdP, recreate only the isolated project using `-f docker-compose.yml -f docker-compose.isolated-internal.yml`, sign in as its existing local administrator at port 19200, and remove only the intended test users. Keep the local administrator. Return to Entra using the three-file command below. Account deletion affects the copied state and may affect those users' personal data; retain anything needed before deletion.
-
-Add SPA redirect URIs `https://localhost:19200/`, `https://localhost:19200/oidc-callback.html`, and `https://localhost:19200/oidc-silent-redirect.html` in Entra. The source service is briefly stopped while copying. Run from the repository root; if any command fails, stop and investigate without reinitializing or deleting state:
-
-```bash
-( set -eu
-  test ! -e .local/autoprovision-poc
-  mkdir -p .local/autoprovision-poc/data .local/autoprovision-poc/config
-  trap 'docker compose --env-file .env.example start opencloud' EXIT
-  docker compose --env-file .env.example stop opencloud
-  rsync -aX .local/opencloud/data/ .local/autoprovision-poc/data/
-  cp -p .local/opencloud/config/opencloud.yaml .local/autoprovision-poc/config/opencloud.yaml
-  docker compose --env-file .env.example start opencloud
-  trap - EXIT
-)
-```
-
-Then start the separate Compose project:
+To start the main instance with Entra, from the repository root:
 
 ```bash
 export OPENCLOUD_LOCAL_UID="$(id -u)" OPENCLOUD_LOCAL_GID="$(id -g)"
-docker compose -p opencloud-autoprovision-poc \
-  --env-file .env.example --env-file .local/entra-poc.env \
-  -f docker-compose.yml -f docker-compose.entra.yml \
-  -f docker-compose.autoprovision.yml config -q
-docker compose -p opencloud-autoprovision-poc \
-  --env-file .env.example --env-file .local/entra-poc.env \
-  -f docker-compose.yml -f docker-compose.entra.yml \
-  -f docker-compose.autoprovision.yml up -d
+docker compose --env-file .env.example --env-file .local/entra-poc.env config -q
+docker compose --env-file .env.example --env-file .local/entra-poc.env up -d
 ```
 
-Open `https://localhost:19200/` in a private window; for a remote host forward port 19200 over SSH. Sign in as the new assigned test account twice and check its files. The copy and its config contain sensitive data and are ignored by Git; retain them only for the duration of this PoC. Do not send tokens, logs containing claims, or passwords.
-
-To stop the isolated instance without removing its copied state:
+To switch the same instance to its internal IdP and existing local administrator account:
 
 ```bash
-docker compose -p opencloud-autoprovision-poc \
-  --env-file .env.example --env-file .local/entra-poc.env \
-  -f docker-compose.yml -f docker-compose.entra.yml \
-  -f docker-compose.autoprovision.yml stop
+export OPENCLOUD_LOCAL_UID="$(id -u)" OPENCLOUD_LOCAL_GID="$(id -g)"
+docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.internal.yml config -q
+docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.internal.yml up -d
 ```
+
+The example environment file supplies placeholders required when Compose parses the base file; the internal override removes the Entra settings. Switching recreates the container and interrupts service. To return to Entra, run the main instance commands above. Do not run both modes as separate projects against the same data, reinitialize OpenCloud, or delete state. For a remote host use an SSH local port forward to `127.0.0.1:9200`. Keep tokens, passwords and configuration contents out of diagnostics.

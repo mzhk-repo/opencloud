@@ -1,0 +1,34 @@
+---
+services:
+  opencloud:
+    environment:
+      OC_EXCLUDE_RUN_SERVICES: !reset null
+      OC_OIDC_ISSUER: !reset null
+      PROXY_OIDC_INSECURE: !reset null
+      PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD: !reset null
+      PROXY_OIDC_SKIP_USER_INFO: !reset null
+      PROXY_CSP_CONFIG_FILE_LOCATION: !reset null
+      PROXY_AUTOPROVISION_ACCOUNTS: !reset null
+      PROXY_AUTOPROVISION_CLAIM_USERNAME: !reset null
+      PROXY_USER_OIDC_CLAIM: !reset null
+      PROXY_USER_CS3_CLAIM: !reset null
+      PROXY_ROLE_ASSIGNMENT_DRIVER: !reset null
+      PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM: !reset null
+      GRAPH_USERNAME_MATCH: !reset null
+      GRAPH_ASSIGN_DEFAULT_USER_ROLE: !reset null
+      WEB_OIDC_CLIENT_ID: !reset null
+      WEB_OIDC_SCOPE: !reset null
+      WEBFINGER_WEB_OIDC_CLIENT_ID: !reset null
+      WEBFINGER_WEB_OIDC_CLIENT_SCOPES: !reset null
+    volumes: !override
+      - type: bind
+        source: ./.local/opencloud/data
+        target: /var/lib/opencloud
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.local/opencloud/config/opencloud.yaml
+        target: /etc/opencloud/opencloud.yaml
+        read_only: true
+        bind:
+          create_host_path: false

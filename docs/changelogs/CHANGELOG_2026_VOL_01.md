@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-18 — Configure Entra for the main local instance
+
+- **Context:** The isolated port 19200 group-claim PoC is no longer used; the main local instance uses port 9200.
+- **Change:** Moved Entra, JIT and group-role mapping to the base Compose file, copied the existing local mapping to the main config directory, and replaced obsolete PoC overrides with an internal IdP override for the same data.
+- **Verification:** Both Compose modes rendered successfully; assertions confirmed the Entra settings and mounts and their removal in internal mode. The main container was not started. Earlier, the isolated PoC was recreated with the public-link settings, reported running and returned HTTP 200.
+- **Risks:** Main-instance login and group synchronization remain unverified; JIT can remove existing memberships, denied users can be provisioned, audience is not enforced and UPN is mutable. Switching modes interrupts service.
+- **Rollback:** Restore the previous Compose files and README; retain the main data and configuration. Do not reinitialize existing state.
+
 ## 2026-11-18 — Allow passwordless public read links
 
 - **Context:** Public read-only links should be usable without a password.

@@ -31,6 +31,7 @@ Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, 
 - `docs/SPEC.md`, `docs/ROADMAP.md`: requirements and implementation plan.
 - `CHANGELOG.md` and `docs/changelogs/`: changelog index and active volume.
 - `scripts/preflight-host.sh`: storage preflight; `docker-compose.yml`: isolated local setup. Swarm and CI are planned.
+- Local Compose defaults to Entra on port 9200; `docker-compose.internal.yml` switches the same instance to its internal IdP. The main instance has not yet been validated with Entra and group synchronization.
 
 ## Important Documents
 
