@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-18 — Allow passwordless public read links
+
+- **Context:** Public read-only links should be usable without a password.
+- **Change:** Configured local Compose to allow passwordless public links while requiring passwords for writable links; recorded the same policy for the planned Swarm stack and its acceptance check.
+- **Verification:** OpenCloud 7.2 documentation describes both settings; `docker compose --env-file .env.example config -q` and `git diff --check` passed. Browser behavior remains unverified.
+- **Risks:** Anyone possessing a passwordless link can access its contents. Runtime behavior remains unverified.
+- **Rollback:** Remove the two sharing environment entries and revert the related documentation changes.
+
 ## 2026-11-18 — Accept built-in OIDC group synchronization
 
 - **Context:** The project owner chose the official OpenCloud image and reported upstream feature request opencloud-eu/opencloud#4058.
@@ -167,11 +175,3 @@
 - **Verification:** Image variables and disallowed tags checked; AI context is 56 lines; YAML config parsed with PyYAML; ShellCheck accepts its configuration. `yamllint` and Git repository checks unavailable in this environment.
 - **Risks:** Local Compose, deployment and runtime behavior remain unimplemented and unverified.
 - **Rollback:** Remove the new skeleton files and revert the associated documentation updates.
-
-## 2026-11-16 — Example
-
-- **Context:** 
-- **Change:**
-- **Verification:**
-- **Risks:** 
-- **Rollback:** 

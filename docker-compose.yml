@@ -8,6 +8,8 @@ services:
     environment:
       OC_URL: https://localhost:9200
       OC_INSECURE: "true"
+      OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD: "false"
+      OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD: "true"
       PROXY_HTTP_ADDR: 0.0.0.0:9200
       STORAGE_USERS_DRIVER: posix
       STORAGE_USERS_ID_CACHE_STORE: nats-js-kv
