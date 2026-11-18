@@ -1,5 +1,21 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-18 — Accept built-in OIDC group synchronization
+
+- **Context:** The project owner chose the official OpenCloud image and reported upstream feature request opencloud-eu/opencloud#4058.
+- **Change:** Documented the accepted JIT group synchronization behavior, observed membership removal, upstream request and remaining deployment gates in the specification, roadmap and AI context.
+- **Verification:** The upstream issue was accessible and describes independently disabling group synchronization; user-reported isolated PoC results and existing source inspection underpin the documented behavior.
+- **Risks:** Manually managed memberships can be removed; missing group claims, token audience, UPN stability and group overage remain relevant risks. The issue's proposed setting is not implemented in 7.2.5.
+- **Rollback:** Revert the related specification, roadmap and AI context updates.
+
+## 2026-11-18 — Manual group membership synchronization confirmed
+
+- **Context:** Isolated PoC tests the effect of Entra group claims on locally managed OpenCloud groups.
+- **Change:** Recorded the user's observed removal of a manually assigned group membership and the absent-claim behavior of OpenCloud 7.2.5.
+- **Verification:** The user confirmed membership was removed after the next login. Source inspection shows an absent configured groups claim yields an empty desired set and synchronization removes existing memberships.
+- **Risks:** Changing `PROXY_AUTOPROVISION_CLAIM_GROUPS` to a nonexistent claim does not disable synchronization; group memberships can be removed. Audience and mutable UPN risks remain.
+- **Rollback:** Revert the AI context documentation update.
+
 ## 2026-11-18 — Isolated Entra group authorization tested
 
 - **Context:** Test group claims with Entra app-role assignment requirements disabled on the isolated PoC.

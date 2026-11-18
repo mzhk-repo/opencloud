@@ -8,7 +8,7 @@ Phase 1 plans a university file store for up to 1,000 staff using OpenCloud. A l
 
 - One OpenCloud container, PosixFS in non-collaborative mode, no separate database or Redis.
 - Web-only access via Microsoft Entra ID; Spaces provide per-user access. Direct OIDC and staff filtering require a PoC.
-- Drupal, online editors, native clients, group synchronization and Google Drive migration are outside Phase 1.
+- Drupal, online editors, native clients and Google Drive migration are outside Phase 1. Built-in OIDC group synchronization remains enabled with JIT.
 
 ## Architecture Snapshot
 
@@ -45,7 +45,7 @@ Use [SPEC.md](SPEC.md), [ROADMAP.md](ROADMAP.md) and any applicable ADRs as auth
 
 ## Known Assumptions
 
-Local Entra PoC: user reports successful admin/staff group-role mapping and denial for a user outside both groups; that denied user was still provisioned. User observed 13 OpenCloud groups including the Entra GUIDs. Autoprovisioning can change group memberships; audience is not enforced and UPN is mutable. Keep this test loopback-only.
+Local Entra PoC: group-role mapping and denial were verified; denied users can still be provisioned. JIT synchronizes group memberships and can remove manually assigned memberships; an absent claim can result in an empty membership set. Keep the official image without a custom patch; independent sync control is requested in [issue #4058](https://github.com/opencloud-eu/opencloud/issues/4058). Audience is not enforced and UPN is mutable; keep the PoC loopback-only.
 
 ## State layout
 

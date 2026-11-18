@@ -1,5 +1,13 @@
 # Базова технічна специфікація (MVP): Корпоративне сховище OpenCloud (PosixFS)
 
+## Decision update — 2026-11-18: Entra groups and roles
+
+The project owner chose the unmodified official OpenCloud image and accepts the existing group synchronization behavior with automatic provisioning. In the isolated PoC, Entra Security Group object IDs in the access-token `groups` claim map to OpenCloud admin and user roles; users without a mapped group were denied, although their accounts could already be provisioned. The final deployment and bulk assignment approach remain subject to acceptance and security gates.
+
+In OpenCloud 7.2.5, provisioning also synchronizes local group memberships from the configured groups claim. It can create local groups named by Entra GUIDs and remove manually assigned memberships absent from the claim; the user reproduced the removal on the isolated PoC. A missing or unusable claim can be treated as an empty set. Do not use a nonexistent claim name as a way to disable synchronization. Local group membership must be managed with this behavior in mind.
+
+This decision supersedes the original App Role-only and no-group-synchronization statements below. [Upstream issue #4058](https://github.com/opencloud-eu/opencloud/issues/4058) requests an independent switch for group synchronization; its proposed environment variable is not an available setting in 7.2.5. No custom patch or image is planned. Token audience validation, mutable UPN, group overage and recovery/offboarding behavior remain unresolved before deployment beyond the local PoC.
+
 ## КРОК 1: Результати експрес-аудиту та архітектурні рішення
 
 ### 1. Ключові архітектурні принципи MVP
@@ -61,7 +69,7 @@
 - Налаштування та тестування вбудовування документів через `<iframe>`, заголовків `Content-Security-Policy` (`csp.yaml`) та `X-Frame-Options` (перенесено у Фазу 2 під час інтеграції Drupal 11).
 - Встановлення онлайн-редакторів Collabora Online або ONLYOFFICE Docs.
 - Підтримка входу через OIDC у нативних мобільних (Android/iOS) та десктопних клієнтах OpenCloud (за потреби реалізується у Фазі 2 через OIDC-брокер).
-- Синхронізація груп з Entra ID.
+- Окремо розроблена синхронізація груп з Entra ID; штатна синхронізація OpenCloud 7.2.5 під час JIT залишається увімкненою згідно з рішенням вище.
 
 ### 2. Функціональні вимоги та сценарії (Core Workflows)
 
