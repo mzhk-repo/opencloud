@@ -22,7 +22,7 @@ Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, 
 
 ## Security Constraints
 
-- Keep secrets out of Git, logs and generated mappings; use SOPS and Swarm Secrets. Separate dev and production keys.
+- Keep secrets out of Git, logs and generated mappings; use SOPS and Swarm Secrets. The owner selected the SMTP2Graph age recipient for both dev and prod; its private key grants access to both.
 - Identify the target environment before changes; obtain explicit approval for production or destructive operations. Never expose credentials.
 - Initialize OpenCloud once per environment; do not rerun `opencloud init` over existing data. Failed restores must leave the service stopped.
 
@@ -32,7 +32,7 @@ Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, 
 - `CHANGELOG.md` and `docs/changelogs/`: changelog index and active volume.
 - `scripts/preflight-host.sh`: storage preflight; `docker-compose.yml`: isolated local setup. Swarm and CI are planned.
 - Local Compose defaults to Entra on port 9200; `docker-compose.internal.yml` switches the same instance to its internal IdP. The main instance has not yet been validated with Entra and group synchronization.
-- `scripts/reconcile-sops-secrets.sh`: planned Swarm secret preparation; selects dev/prod from `/etc/environment` and verifies exported `SERVER_ENV`. SOPS recipients and encrypted environment files remain to be configured.
+- `scripts/reconcile-sops-secrets.sh`: planned Swarm secret preparation; selects dev/prod from `/etc/environment` and verifies exported `SERVER_ENV`. Encrypted environment files contain placeholders and require configuration.
 
 ## Important Documents
 

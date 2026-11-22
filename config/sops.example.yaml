@@ -1,5 +1,0 @@
-creation_rules:
-  - path_regex: (^|/)env\.dev\.enc$
-    age: REPLACE_WITH_DEV_AGE_PUBLIC_KEY
-  - path_regex: (^|/)env\.prod\.enc$
-    age: REPLACE_WITH_PROD_AGE_PUBLIC_KEY

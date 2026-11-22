@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-22 — Reuse SMTP2Graph SOPS recipient
+
+- **Context:** The project owner requested the public age recipient used by SMTP2Graph.
+- **Change:** Added the same SOPS recipient for dev and prod and created encrypted environment files containing placeholders and the pinned image version; aligned the instructions and architecture notes.
+- **Verification:** Both files contain encrypted values and SOPS metadata and decrypt successfully on this host without displaying their contents.
+- **Risks:** A holder of the shared private key can decrypt both environments. The encrypted files are placeholders; real environment-specific configuration, Swarm reconciliation and recovery remain unverified.
+- **Rollback:** Remove the SOPS configuration and placeholder encrypted files and revert the associated documentation updates; preserve all private keys and existing state.
+
 ## 2026-11-22 — Prepare SOPS-to-Swarm secret reconciliation
 
 - **Context:** Task 4.1 selects dev or prod using the host's `SERVER_ENV` in `/etc/environment` instead of `DEPLOY_ENVIRONMENT` in encrypted files.
