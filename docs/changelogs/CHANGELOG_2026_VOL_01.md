@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-22 — Prepare SOPS-to-Swarm secret reconciliation
+
+- **Context:** Task 4.1 selects dev or prod using the host's `SERVER_ENV` in `/etc/environment` instead of `DEPLOY_ENVIRONMENT` in encrypted files.
+- **Change:** Added a category 1b reconciliation script, separate-recipient and dotenv templates, and operational instructions; the script stages plaintext in tmpfs and creates a content-addressed secret only on apply.
+- **Verification:** ShellCheck passed. An ephemeral age key and synthetic SOPS file passed a dry run; environment mismatch, placeholder and insecure plaintext permissions were rejected. Two mock Swarm apply runs created one mock secret and one name-only mapping.
+- **Risks:** Real recipients and encrypted files are not configured. Real Swarm creation, prod approval flow, non-root secret mount and service startup remain unverified. No production state was changed.
+- **Rollback:** Remove the new script and templates and revert the associated documentation changes; any independently created Swarm secrets require separate review before removal.
+
 ## 2026-11-18 — Configure Entra for the main local instance
 
 - **Context:** The isolated port 19200 group-claim PoC is no longer used; the main local instance uses port 9200.

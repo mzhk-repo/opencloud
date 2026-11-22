@@ -40,6 +40,19 @@ After initialization, prepare the Entra settings and group-to-role mapping as de
 
 Check a prepared storage directory with `./scripts/preflight-host.sh /srv/opencloud/data`. The check needs `findmnt`, `df`, `awk`, `mktemp` and Python 3. It requires at least 10 GiB free for the planned test file; provision additional space for real data and overhead. The printed 70% memory reference does not set a limit; choose a separate dev limit after measuring actual usage.
 
+## SOPS and Swarm secret preparation
+
+`config/sops.example.yaml` and `config/sops-env.example` are templates, not usable configuration. Copy the SOPS template to `.sops.yaml` and replace both placeholders with the appropriate, different public age recipients. Keep private keys outside the repository and retain a separate recovery copy. Create `env.dev.enc` and `env.prod.enc` as SOPS-encrypted dotenv files with the matching recipients; encode each environment's existing `opencloud.yaml` as single-line base64 in `OPENCLOUD_YAML_B64`. Prepare plaintext only in a private directory on `/dev/shm`, with owner-only permissions, and remove it after encryption. Never run `opencloud init` over existing state.
+
+The host must have exactly one literal `SERVER_ENV=dev` or `SERVER_ENV=prod` in `/etc/environment`, and the same value exported to the script. Encrypted filenames must match the host. A plaintext CI dotenv file is accepted only with owner-only permissions; do not use plaintext `env.*.enc` files. Placeholders and empty entries are rejected. With a manager node and a prepared encrypted file, first run a dry run and then, when authorized, apply:
+
+```bash
+./scripts/reconcile-sops-secrets.sh -env-file env.dev.enc -environment dev -mapping-file /tmp/opencloud-map.env
+./scripts/reconcile-sops-secrets.sh -env-file env.dev.enc -environment dev -mapping-file /tmp/opencloud-map.env -apply
+```
+
+Use `env.prod.enc`, `-environment prod`, and `-approval-context <approval-id>` for an explicitly authorized production apply. The identifier records context and does not itself grant approval. Apply requires access to a Swarm manager, creates the content-addressed secret if absent, and atomically updates a mapping containing only its name. It does not deploy a service or remove old secrets. Securely remove temporary plaintext and mapping files when no longer needed. Service startup from the secret and recovery remain to be validated.
+
 ## Local Entra and internal login
 
 The main Compose configuration uses Entra with JIT provisioning and group-to-role mapping at `https://localhost:9200`. OpenCloud 7.2.5 does not enforce the access-token audience and UPN is mutable; keep this instance on loopback until those risks are resolved. Entra must supply `upn`, `name`, `email` and group claims. Configure the SPA redirect URIs for port 9200 and the `access_as_user` scope.
