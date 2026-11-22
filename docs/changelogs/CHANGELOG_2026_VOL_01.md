@@ -1,5 +1,21 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-22 — Document SOPS secret preparation
+
+- **Context:** The operator retained base64 for `opencloud.yaml` and requested commands to write and verify it without copying the value.
+- **Change:** Added a scripts runbook for storage preflight, SOPS base64 update and verification, and dev secret reconciliation; aligned the README and roadmap with the existing base64 implementation.
+- **Verification:** The SOPS stdin update was previously checked with an ephemeral key and synthetic data; documentation checks are recorded separately. Swarm access remains unavailable to the agent.
+- **Risks:** The local Git history cleanup must be completed separately because Git metadata is read-only in the agent environment. Real Swarm creation and service startup remain unverified.
+- **Rollback:** Remove the runbook and revert the related documentation changes.
+
+## 2026-11-22 — Validate decoded OpenCloud configuration
+
+- **Context:** Task 4.1 review found that the populated dev base64 value decoded successfully but was not valid YAML and differed from the local configuration.
+- **Change:** Require a non-empty YAML mapping before preparing a Swarm secret and document the Python PyYAML dependency.
+- **Verification:** ShellCheck and Bash syntax passed; a synthetic YAML mapping was accepted, while malformed synthetic YAML and the current dev value were rejected. Swarm access is denied in the agent environment.
+- **Risks:** The dev encrypted value must be corrected and verified against the intended instance; actual Swarm creation, service startup and recovery remain unverified.
+- **Rollback:** Revert the YAML validation and dependency documentation.
+
 ## 2026-11-22 — Reuse SMTP2Graph SOPS recipient
 
 - **Context:** The project owner requested the public age recipient used by SMTP2Graph.

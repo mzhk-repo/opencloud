@@ -4,3 +4,11 @@
 !.env.example
 env.*
 !env.*.enc
+*.decrypted~env.*.enc
+archive/
+# Логи
+*.log
+logs/
+**/logs/
+.archive
+

@@ -72,6 +72,10 @@ import binascii
 import re
 import sys
 from pathlib import Path
+try:
+    import yaml
+except ImportError:
+    sys.exit('ERROR: Python PyYAML is required to validate OpenCloud configuration')
 
 values = {}
 for line in Path(sys.argv[1]).read_text().splitlines():
@@ -93,6 +97,12 @@ except (ValueError, binascii.Error):
     sys.exit('ERROR: OPENCLOUD_YAML_B64 is invalid base64')
 if not data or b'\0' in data or b'REPLACE_WITH_' in data:
     sys.exit('ERROR: decoded OpenCloud configuration is empty or invalid')
+try:
+    config = yaml.safe_load(data)
+except (yaml.YAMLError, UnicodeError):
+    sys.exit('ERROR: decoded OpenCloud configuration is not valid YAML')
+if not isinstance(config, dict) or not config:
+    sys.exit('ERROR: decoded OpenCloud configuration must be a non-empty YAML mapping')
 Path(sys.argv[2]).write_bytes(data)
 PY
 chmod 400 "$stage/opencloud.yaml"
