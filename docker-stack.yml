@@ -1,12 +1,16 @@
 ---
 services:
   opencloud:
-    image: ${OPENCLOUD_IMAGE:?Set OPENCLOUD_IMAGE}:${OPENCLOUD_IMAGE_TAG:?Set OPENCLOUD_IMAGE_TAG}
+    image: >-
+      ${OPENCLOUD_IMAGE:?Set OPENCLOUD_IMAGE}:${OPENCLOUD_IMAGE_TAG:?Set
+      OPENCLOUD_IMAGE_TAG}
     user: "${OPENCLOUD_UID:-1000}:${OPENCLOUD_GID:-1000}"
     environment:
       OC_URL: https://${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}
       OC_EXCLUDE_RUN_SERVICES: idp
-      OC_OIDC_ISSUER: https://login.microsoftonline.com/${ENTRA_TENANT_ID:?Set ENTRA_TENANT_ID}/v2.0
+      OC_OIDC_ISSUER: >-
+        https://login.microsoftonline.com/${ENTRA_TENANT_ID:?Set
+        ENTRA_TENANT_ID}/v2.0
       OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD: "false"
       OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD: "true"
       PROXY_HTTP_ADDR: 0.0.0.0:9200
@@ -50,12 +54,20 @@ services:
         target: /etc/opencloud/entra-csp.yaml
     networks:
       - proxy
+    healthcheck:
+      test: ["CMD", "opencloud", "proxy", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
     deploy:
       replicas: 1
       labels:
         - "traefik.enable=true"
         - "traefik.swarm.network=${OPENCLOUD_PROXY_NETWORK:-proxy-net}"
-        - "traefik.http.routers.opencloud.rule=Host(`${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}`)"
+        - >-
+          traefik.http.routers.opencloud.rule=Host(`${OPENCLOUD_DOMAIN:?Set
+          OPENCLOUD_DOMAIN}`)
         - "traefik.http.routers.opencloud.entrypoints=web"
         - "traefik.http.routers.opencloud.service=opencloud"
         - "traefik.http.routers.opencloud.middlewares=opencloud-forwarded-https"
@@ -91,7 +103,8 @@ configs:
     name: ${OPENCLOUD_PROXY_CONFIG_NAME:?Set OPENCLOUD_PROXY_CONFIG_NAME}
     file: ${OPENCLOUD_PROXY_CONFIG_FILE:?Set OPENCLOUD_PROXY_CONFIG_FILE}
   entra_csp:
-    name: ${OPENCLOUD_ENTRA_CSP_CONFIG_NAME:?Set OPENCLOUD_ENTRA_CSP_CONFIG_NAME}
+    name: >-
+      ${OPENCLOUD_ENTRA_CSP_CONFIG_NAME:?Set OPENCLOUD_ENTRA_CSP_CONFIG_NAME}
     file: ./config/entra-csp.yaml
 
 networks:

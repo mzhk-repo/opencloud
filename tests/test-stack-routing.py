@@ -28,6 +28,7 @@ class StackRoutingTests(unittest.TestCase):
             cwd=ROOT, env=env, stderr=subprocess.DEVNULL,
         ))
         service = data['services']['opencloud']
+        self.assertEqual(service['healthcheck']['test'], ['CMD', 'opencloud', 'proxy', 'health'])
         labels = service['deploy']['labels']
         self.assertEqual(service['environment']['PROXY_TLS'], 'false')
         self.assertEqual(service['environment']['OC_URL'], 'https://opencloud.example.test')

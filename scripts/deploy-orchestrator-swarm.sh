@@ -155,8 +155,14 @@ if labels.get('traefik.enable', '').lower() != 'true':
 PY
 docker_clean stack config -c docker-stack.yml > /dev/null || die 'Swarm stack configuration is invalid'
 [[ "$(docker_clean info --format '{{.Swarm.LocalNodeState}} {{.Swarm.ControlAvailable}}')" == 'active true' ]] || die 'an active Swarm manager is required'
+network_names=$(docker_clean network ls --format '{{.Name}}') || die 'cannot list Docker networks'
+network_exists=false
+while IFS= read -r network_name; do
+  [[ "$network_name" != "$OPENCLOUD_PROXY_NETWORK" ]] || network_exists=true
+done <<< "$network_names"
+validate_network() {
 docker_clean network inspect "$OPENCLOUD_PROXY_NETWORK" --format '{{json .}}' > "$stage/network.json" || die 'cannot inspect the configured proxy network'
-network_security=$(python3 - "$stage/network.json" "$environment" <<'PY'
+network_security=$(python3 - "$stage/network.json" <<'PY'
 import json
 from pathlib import Path
 import sys
@@ -164,12 +170,12 @@ network = json.loads(Path(sys.argv[1]).read_text())
 if network.get('Driver') != 'overlay' or network.get('Scope') != 'swarm':
     sys.exit('ERROR: proxy network must be a Swarm overlay')
 encrypted = 'encrypted' in (network.get('Options') or {})
-if sys.argv[2] == 'prod' and not encrypted:
-    sys.exit('ERROR: production HTTP backend requires an encrypted overlay')
 print('encrypted' if encrypted else 'unencrypted')
 PY
 ) || die 'proxy network validation failed'
 [[ "$network_security" == encrypted ]] || log 'WARNING: the proxy overlay is not encrypted; backend HTTP traffic is unencrypted'
+}
+[[ "$network_exists" == false ]] || validate_network
 node_id=$(docker_clean info --format '{{.Swarm.NodeID}}')
 node_list=$(docker_clean node ls --quiet --filter 'node.label=storage=primary') || die 'cannot list storage nodes'
 [[ -z "$node_list" || "$node_list" == "$node_id" ]] || die 'storage=primary is already assigned to another node or to multiple nodes'
@@ -183,11 +189,17 @@ else
 fi
 log 'environment, stack policies and local storage node verified'
 if [[ "$operation" == check ]]; then
+  [[ "$network_exists" == true ]] || log "deployment will create Swarm overlay network $OPENCLOUD_PROXY_NETWORK"
   [[ -n "$node_list" ]] || log 'deployment will assign storage=primary to this manager'
   log 'check passed; no data directory, Swarm Secret or service was changed'
   exit 0
 fi
 
+if [[ "$network_exists" == false ]]; then
+  docker_clean network create --driver overlay "$OPENCLOUD_PROXY_NETWORK" > /dev/null || die 'cannot create proxy overlay network; inspect existing networks before retrying'
+  validate_network
+  log "created Swarm overlay network $OPENCLOUD_PROXY_NETWORK; connect Traefik to it"
+fi
 if [[ -z "$node_list" ]]; then
   docker_clean node update --label-add storage=primary "$node_id" > /dev/null || die 'cannot assign storage=primary to the current manager'
   node_list=$(docker_clean node ls --quiet --filter 'node.label=storage=primary') || die 'cannot verify storage nodes after labeling'

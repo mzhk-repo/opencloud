@@ -1,5 +1,29 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-23 — Add the OpenCloud proxy healthcheck
+
+- **Context:** Task 6.1 requires a container healthcheck for Swarm and the deployment orchestrator.
+- **Change:** Configured the image's `opencloud proxy health` command with a startup grace period, and documented its scope and the separate external HTTPS check.
+- **Verification:** In an isolated container using the official 7.2.5 image, empty temporary state and an internal network, the command failed before startup, succeeded while running and failed after shutdown. Compose routing and 20 fake-Docker orchestrator checks passed; Swarm stack rendering and `git diff --check` passed.
+- **Risks:** The check tests proxy HTTP reachability, not storage, Entra or external ingress. Live Swarm health and end-to-end acceptance remain unverified. With wildcard proxy binding, OpenCloud's check requires a non-loopback IP; a container using `--network none` fails the check. `yamllint` is unavailable locally.
+- **Rollback:** Remove the stack healthcheck and revert its related test and documentation; the orchestrator will again block deployment until a healthcheck is configured.
+
+## 2026-11-23 — Create the shared proxy overlay on deployment
+
+- **Context:** The owner chose a shared Swarm overlay between Traefik and OpenCloud, including when it is unencrypted.
+- **Change:** The orchestrator accepts unencrypted overlays in both environments with a warning, checks existing networks, and creates a missing overlay during deployment. Check mode reports the planned creation without changes. Documented the shared network and its exposure.
+- **Verification:** Twenty isolated fake-Docker orchestrator checks passed, including repeat deployment, missing or incompatible networks and creation failure. ShellCheck, Bash syntax and `git diff --check` passed.
+- **Risks:** HTTP traffic and tokens are exposed to participants of an unencrypted overlay. Traefik must join the same network; creation does not update Traefik. A created network remains if a later deployment step fails. Live deployment remains unverified.
+- **Rollback:** Revert the orchestrator, tests and related documentation; inspect network usage before removing any network.
+
+## 2026-11-23 — Document Traefik timeout boundary for OpenCloud
+
+- **Context:** Task 5.4 requires streaming TUS requests and records a proposed `web` read timeout for the shared Traefik entrypoint.
+- **Change:** Documented the OpenCloud router contract and clarified that the proposed 5-minute timeout is not configured or validated, and needs an impact review because it affects every service on `web`.
+- **Verification:** Confirmed the stack already defines the shared overlay, HTTP backend on port 9200, HTTPS forwarding headers and no buffering middleware; the rendered routing contract test passed with synthetic values.
+- **Risks:** Central Traefik configuration, Cloudflare ingress, real TLS and TUS transfers remain unverified. Production still requires an encrypted overlay.
+- **Rollback:** Revert this entry and the related roadmap and AI context clarifications.
+
 ## 2026-11-23 — Connect OpenCloud to Traefik
 
 - **Context:** Cloudflare Tunnel terminates TLS; Traefik uses the shared `web` entrypoint and the current `proxy-net` overlay is unencrypted.

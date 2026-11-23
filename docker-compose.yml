@@ -1,7 +1,9 @@
 ---
 services:
   opencloud:
-    image: ${OPENCLOUD_IMAGE:?Set OPENCLOUD_IMAGE}:${OPENCLOUD_IMAGE_TAG:?Set OPENCLOUD_IMAGE_TAG}
+    image: >-
+      ${OPENCLOUD_IMAGE:?Set OPENCLOUD_IMAGE}:${OPENCLOUD_IMAGE_TAG:?Set
+      OPENCLOUD_IMAGE_TAG}
     user: "${OPENCLOUD_LOCAL_UID:-1000}:${OPENCLOUD_LOCAL_GID:-1000}"
     ports:
       - "127.0.0.1:9200:9200"
@@ -11,7 +13,9 @@ services:
       OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD: "false"
       OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD: "true"
       OC_EXCLUDE_RUN_SERVICES: idp
-      OC_OIDC_ISSUER: https://login.microsoftonline.com/${ENTRA_TENANT_ID:?Set ENTRA_TENANT_ID}/v2.0
+      OC_OIDC_ISSUER: >-
+        https://login.microsoftonline.com/${ENTRA_TENANT_ID:?Set
+        ENTRA_TENANT_ID}/v2.0
       PROXY_OIDC_INSECURE: "false"
       PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD: jwt
       PROXY_OIDC_SKIP_USER_INFO: "true"

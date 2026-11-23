@@ -364,7 +364,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Кроки реалізації:**
   1. `scripts/deploy-orchestrator-swarm.sh` приймає `ORCHESTRATOR_ENV_FILE`, `ENVIRONMENT_NAME` (`development` | `production`), `ORCHESTRATOR_MODE=swarm`, `STACK_NAME`; інший режим → відмова.
   2. Порядок: перевірка середовища та генерація Configs і dry-run секрету в tmpfs → рендер і перевірка політик → перевірка manager і storage-ноди → призначення `storage=primary` поточному manager, якщо мітки немає → `init-volumes.sh` → `preflight-host.sh` → `reconcile-sops-secrets.sh ... -apply` → `docker stack deploy` → post-deploy check. Якщо мітка вже на іншій ноді або поточна нода має інше значення `storage`, деплой зупиняється. При помилці після призначення мітка лишається. Підготовка віддаленої storage-ноди не реалізована.
-  3. Перевірка структурованої конфігурації: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, external secret, увімкнений healthcheck та Traefik. Поточний стек не має healthcheck; деплой блокується до задачі 6.1. HTTP до OpenCloud потребує зашифрованої overlay-мережі для production.
+  3. Перевірка структурованої конфігурації: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, external secret, увімкнений healthcheck та Traefik. Стек використовує `opencloud proxy health`; зовнішня HTTPS-перевірка залишається окремою умовою успішного деплою. Оркестратор створює відсутню overlay-мережу під час деплою та приймає незашифровану мережу з попередженням; Traefik має бути підключений до неї.
   4. Post-deploy check — функція очікування з таймаутом: `docker inspect --format '{{.State.Health.Status}}'` контейнера = `healthy` і `curl` на головну сторінку `https://<domain>/` повертає 200 (не `.well-known`, див. 6.1). Помилка → ненульовий код, пайплайн падає.
   5. Для `production` вимагати `--approval-context`; `scripts/ci-deploy-swarm.sh` адаптує середовище shared workflow до явного `--deploy --apply`.
 - **Файли / Директорії:** `scripts/deploy-orchestrator-swarm.sh`
@@ -388,7 +388,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Кроки реалізації:**
   1. Labels на сервісі: Host-правило, entrypoint `web`, HTTP-порт 9200 і спільна overlay-мережа `OPENCLOUD_PROXY_NETWORK` (типово `proxy-net`). TLS завершується в Cloudflare Tunnel; `PROXY_TLS=false`, router задає `X-Forwarded-Proto=https` і `X-Forwarded-Port=443`.
   2. Не додавати buffering middleware (отже, без `maxRequestBodyBytes`).
-  3. У конфігурації Traefik підготовлено `web` readTimeout 5m; діючий сервіс ще не має цього аргументу. Значення впливає на всі сервіси entrypoint і потребує перевірки на реальних TUS-чанках та після окремого деплою Traefik. Поточна `proxy-net` не зашифрована; production потребує encrypted overlay між Traefik та OpenCloud.
+  3. Для центрального Traefik запропоновано `web` readTimeout 5m; значення не налаштоване й не підтверджене як помірне для всіх сервісів entrypoint. Оператор має оцінити глобальний вплив перед окремою зміною Traefik. Після неї перевірити реальні TUS-чанки. Незашифрована overlay передає HTTP-трафік і токени без шифрування; учасникам спільної мережі потрібна довіра.
   4. Задокументувати зміни на боці центрального Traefik в `AI_CONTEXT.md`.
 - **Файли / Директорії:** `docker-stack.yml`, `docs/AI_CONTEXT.md`
 - **Критерії прийняття (Acceptance Criteria):**
@@ -439,8 +439,8 @@ CI/CD підключається останнім кроком проєкту (�
 - **Ціль:** Контейнер має працюючий healthcheck, на який спирається post-deploy check оркестратора (5.3).
 - **Залежності:** 5.5
 - **Кроки реалізації:**
-  1. З'ясувати реальний health-ендпоінт і порт: SPEC припускає `/healthz` на 9200, але health сервісів зазвичай віддає debug-порт `[перевірити]`; відкривати його лише у внутрішній мережі.
-  2. Додати `healthcheck` у стек (чи є `curl` або `wget` в образі, `[перевірити]`).
+  1. Штатна команда `opencloud proxy health` звертається до `/healthz` debug-сервісу proxy та перевіряє доступність HTTP proxy. Перевірка не підтверджує роботу Entra, сховища чи зовнішнього маршруту.
+  2. `healthcheck` у стеку використовує штатну команду; образ 7.2.5 також містить `curl` і `wget`. Ізольований запуск на внутрішній мережі підтвердив успіх працюючого proxy і помилку зупиненого.
   3. Стан Swarm task (`Running`) і Docker health status — різні речі, перевіряються обидва. Smoke-перевірка — головна сторінка `https://<domain>/` (200). `/.well-known/openid-configuration` на домені OpenCloud при зовнішньому IdP не віддається без `PROXY_OIDC_REWRITE_WELLKNOWN=true`; вмикати лише за потреби.
   4. Окремого smoke-скрипта немає: перевірка живе в оркестраторі (5.3).
 - **Файли / Директорії:** `docker-stack.yml`, `scripts/deploy-orchestrator-swarm.sh`
