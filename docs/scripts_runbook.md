@@ -10,6 +10,19 @@ Run commands from the repository root. Identify the target environment before ch
 ./scripts/preflight-host.sh /srv/opencloud/data
 ```
 
+## Swarm deployment orchestration (category 1b)
+
+The orchestrator requires a Swarm manager that is also the only node labelled `storage=primary`; remote storage-node preparation is not implemented. Set `SERVER_ENV` from the host, an existing SOPS or owner-only plaintext `ORCHESTRATOR_ENV_FILE`, `ORCHESTRATOR_MODE=swarm`, `ENVIRONMENT_NAME=development` or `production`, and a lowercase `STACK_NAME`. The file must contain the Entra group IDs and other deployment settings. Check without changing storage, secrets or services:
+
+```bash
+ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
+  ORCHESTRATOR_ENV_FILE=env.dev.enc ./scripts/deploy-orchestrator-swarm.sh --check
+```
+
+After review and completion of Traefik and healthcheck configuration, an authorized dev deployment is started with the same environment and `--deploy --apply`. Production additionally requires `--approval-context <approval-id>`; the identifier does not itself grant approval. The shared CI workflow must invoke `scripts/ci-deploy-swarm.sh`, which adapts its environment to these explicit options; CI integration remains a later task.
+
+The orchestrator checks policies and node placement before storage changes, then prepares and checks the data directory, reconciles the secret, deploys, and waits for a healthy service and HTTP 200. It exits nonzero on failure; a deployment failure can leave an updated stack or new secret, so inspect the service before retrying. It never automatically rolls back data or removes old secrets. No direct production operation is authorized by this documentation.
+
 ## Prepare the storage directory (category 1b)
 
 Run `scripts/init-volumes.sh` on the intended storage node, before preflight. Its exported `SERVER_ENV` must match the single `dev` or `prod` value in `/etc/environment`. `ORCHESTRATOR_ENV_FILE` must point to an owner-only plaintext dotenv prepared securely by the deployment process; it may contain `OPENCLOUD_DATA_PATH`, `OPENCLOUD_UID`, and `OPENCLOUD_GID`. Defaults are `/srv/opencloud/data`, `1000`, and `1000`. The Swarm stack uses the same variables. The script does not decrypt SOPS files or execute dotenv contents.

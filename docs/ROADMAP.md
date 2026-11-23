@@ -363,22 +363,22 @@ CI/CD підключається останнім кроком проєкту (�
 - **Залежності:** 5.2
 - **Кроки реалізації:**
   1. `scripts/deploy-orchestrator-swarm.sh` приймає `ORCHESTRATOR_ENV_FILE`, `ENVIRONMENT_NAME` (`development` | `production`), `ORCHESTRATOR_MODE=swarm`, `STACK_NAME`; інший режим → відмова.
-  2. Порядок: перевірка цільової storage-ноди й мітки `storage=primary` (оркестратор працює на manager) → 1б `init-volumes.sh` на storage-ноді → 1а `preflight-host.sh` на тому самому каталозі та ноді → `reconcile-sops-secrets.sh ... -apply` (оновлення мапінгу) → `scripts/render-proxy-config.py --env-file ...`, збереження його виводу як мапінгу імен Configs → перевірка політик → `docker compose --env-file ... config` → `docker stack deploy` → post-deploy check. Будь-яка помилка зупиняє деплой.
-  3. Перевірка політик — кілька `grep -q` у функції оркестратора, без окремого скрипта: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, усі секрети external.
+  2. Порядок: перевірка середовища та генерація Configs і dry-run секрету в tmpfs → рендер і перевірка політик → перевірка manager і storage-ноди → `init-volumes.sh` → `preflight-host.sh` → `reconcile-sops-secrets.sh ... -apply` → `docker stack deploy` → post-deploy check. Будь-яка помилка зупиняє деплой. Поки що дозволено лише одну storage-ноду, яка є поточним manager; підготовка віддаленої storage-ноди не реалізована.
+  3. Перевірка структурованої конфігурації: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, external secret, увімкнений healthcheck та Traefik. Поточний стек не має healthcheck і Traefik; деплой блокується до задач 5.4 та 6.1.
   4. Post-deploy check — функція очікування з таймаутом: `docker inspect --format '{{.State.Health.Status}}'` контейнера = `healthy` і `curl` на головну сторінку `https://<domain>/` повертає 200 (не `.well-known`, див. 6.1). Помилка → ненульовий код, пайплайн падає.
-  5. Для `production` вимагати `-approval-context`.
+  5. Для `production` вимагати `--approval-context`; `scripts/ci-deploy-swarm.sh` адаптує середовище shared workflow до явного `--deploy --apply`.
 - **Файли / Директорії:** `scripts/deploy-orchestrator-swarm.sh`
 - **Критерії прийняття (Acceptance Criteria):**
-  - [ ] Крок, що завершився помилкою, зупиняє деплой
-  - [ ] Повторний запуск без змін не створює нових секретів
-  - [ ] `production` без approval-context відхиляється
-  - [ ] Деплой, що не став `healthy` за таймаут, завершується ненульовим кодом
+  - [x] Крок, що завершився помилкою, зупиняє деплой (імітаційна перевірка)
+  - [x] Повторний запуск reconcile без змін не створює нових секретів (окрема dev-перевірка задачі 4.1)
+  - [x] `production` без approval-context відхиляється (імітаційна перевірка)
+  - [x] Деплой, що не став `healthy` за таймаут, завершується ненульовим кодом (імітаційна перевірка)
 - **Перевірка (Validation):**
 
   ```bash
   shellcheck scripts/*.sh
   ORCHESTRATOR_MODE=compose ./scripts/deploy-orchestrator-swarm.sh; echo $?   # очікуємо != 0
-  grep -c 'grep -q' scripts/deploy-orchestrator-swarm.sh
+  python3 tests/test-deploy-orchestrator.py
   ```
 
 ### Задача 5.4: Traefik для OpenCloud
@@ -565,7 +565,7 @@ CI/CD підключається останнім кроком проєкту (�
   3. Джоба `deploy-change-check`: за `git diff` виставляє `deploy_allowed=true`, якщо змінено файли рантайму чи інфраструктури (скрипти бекапів і словники ігнорувати).
   4. `deploy-dev` (`environment_name: development`): `push` у `dev` або зворотний PR `main -> dev`, за `deploy_allowed == 'true'`.
   5. `deploy-prod` (`environment_name: production`): на PR і `push` у `main` лише перевірки (`deploy: false`); деплой тільки при релізі з тегом `v*` та `deploy_allowed == 'true'`.
-  6. `with`: `orchestration_script_path: 'scripts/deploy-orchestrator-swarm.sh'`, `docker_image_name`, `build_and_push_docker: false` (офіційний образ), `use_ansible: true`, `infra_repo_path: '/opt/Ansible'`.
+  6. `with`: `orchestration_script_path: 'scripts/ci-deploy-swarm.sh'`, `docker_image_name`, `build_and_push_docker: false` (офіційний образ), `use_ansible: true`, `infra_repo_path: '/opt/Ansible'`.
   7. `secrets`: `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`, `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_SSH_PORT`, `SSH_HOST_KEY_PUB`, `DEPLOY_PROJECT_DIR`, `SOPS_AGE_KEY` (окремо для кожного середовища).
   8. Перший прод-деплой — релізом `v0.1.0` після успішного dev.
 - **Файли / Директорії:** `.github/workflows/main.yml`

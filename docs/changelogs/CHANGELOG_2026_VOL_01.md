@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-23 — Adapt the Swarm deployment orchestrator
+
+- **Context:** Task 5.3 requires the copied SMTP2Graph orchestrator to use OpenCloud storage, secrets and group mappings safely.
+- **Change:** Replaced project-specific assumptions with validated OpenCloud settings, temporary SOPS staging, stack policy and node checks, ordered preparation, deployment and bounded health/HTTPS checks; added a shared-CI adapter and runbook instructions.
+- **Verification:** Ten isolated fake-Docker checks cover the CI adapter, ordered execution, failure boundaries, production approval, host placement and unhealthy timeout. A real dev `--check` decrypted and generated configuration, then stopped before mutations because healthcheck is not yet configured; ShellCheck and Bash syntax passed.
+- **Risks:** Actual deployment, CI, Traefik, healthcheck and recovery are unverified. The orchestrator currently requires the storage node to be the current manager and intentionally rejects remote storage-node preparation.
+- **Rollback:** Remove the OpenCloud orchestrator and CI adapter and revert the related documentation; do not remove deployed data or secrets.
+
 ## 2026-11-23 — Prepare the Swarm data directory
 
 - **Context:** Task 5.2 requires idempotent storage preparation and matching container ownership.

@@ -30,9 +30,9 @@ Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, 
 
 - `docs/SPEC.md`, `docs/ROADMAP.md`: requirements and implementation plan.
 - `CHANGELOG.md` and `docs/changelogs/`: changelog index and active volume.
-- `scripts/init-volumes.sh` prepares a new data directory; `scripts/preflight-host.sh` checks it. `docker-compose.yml` is local; `docker-stack.yml` defaults to 2.5 GiB. Deployment, Traefik and CI are planned.
+- `scripts/init-volumes.sh` prepares a new data directory; `scripts/preflight-host.sh` checks it. The Swarm orchestrator currently requires storage on the manager and blocks deployment until healthcheck and Traefik are configured. CI and runtime acceptance remain pending.
 - Local Compose defaults to Entra on port 9200; `docker-compose.internal.yml` switches the same instance to its internal IdP. The main instance has not yet been validated with Entra and group synchronization.
-- `scripts/reconcile-sops-secrets.sh`: planned Swarm secret preparation; selects dev/prod from `/etc/environment` and verifies exported `SERVER_ENV`. Encrypted environment files contain placeholders and require configuration.
+- `scripts/reconcile-sops-secrets.sh` prepares versioned Swarm secrets; selects dev/prod from `/etc/environment` and verifies exported `SERVER_ENV`. Environment-specific settings require validation before deployment.
 - `scripts/render-proxy-config.py` generates ignored role mapping and content-based Swarm Config names from Entra group IDs; the planned orchestrator must invoke it before deployment.
 
 ## Important Documents
