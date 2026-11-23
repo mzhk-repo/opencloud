@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-23 — Prepare the Swarm data directory
+
+- **Context:** Task 5.2 requires idempotent storage preparation and matching container ownership.
+- **Change:** Added a category 1b script that reads owner-only plaintext settings without executing them, creates a new data directory with mode 0700, and refuses to alter an existing directory with mismatched ownership or mode. Parameterized the stack path, UID, GID and secret ownership with matching defaults; corrected the planned initialization-before-preflight order.
+- **Verification:** Temporary-directory creation including a setgid parent, repeated execution, existing-data preservation and negative cases including environment mismatch passed; ShellCheck and Bash syntax passed. Compose and Stack rendered with default and synthetic custom settings.
+- **Risks:** No real storage directory or ownership was changed. Cross-node orchestration, required privileges, xattrs and runtime operation remain unverified.
+- **Rollback:** Remove the script and revert associated stack, example and documentation changes; preserve existing data and directories.
+
 ## 2026-11-23 — Generate Entra group mapping for Swarm
 
 - **Context:** The ignored local proxy mapping is absent on a freshly cloned deployment host; immutable Swarm Configs also need versioned names.

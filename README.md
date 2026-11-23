@@ -38,7 +38,7 @@ If initialization fails or leaves partial state, stop and investigate; do not re
 
 After initialization, prepare the Entra settings and group-to-role mapping as described below before starting the main service. Use the internal login override for local administration.
 
-Check a prepared storage directory with `./scripts/preflight-host.sh /srv/opencloud/data`. The check needs `findmnt`, `df`, `awk`, `mktemp` and Python 3. It requires at least 10 GiB free for the planned test file; provision additional space for real data and overhead. The printed 70% memory reference does not set a limit; choose a separate dev limit after measuring actual usage.
+Prepare the target data directory with `scripts/init-volumes.sh` on the storage node and then check it with `scripts/preflight-host.sh`; see the [scripts runbook](docs/scripts_runbook.md). Preflight needs `findmnt`, `df`, `awk`, `mktemp` and Python 3. It requires at least 10 GiB free for the planned test file; provision additional space for real data and overhead. The stack defaults to 2.5 GiB; validate the limit under the expected workload.
 
 ## SOPS and Swarm secret preparation
 

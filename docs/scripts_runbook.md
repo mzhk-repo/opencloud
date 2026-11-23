@@ -10,6 +10,17 @@ Run commands from the repository root. Identify the target environment before ch
 ./scripts/preflight-host.sh /srv/opencloud/data
 ```
 
+## Prepare the storage directory (category 1b)
+
+Run `scripts/init-volumes.sh` on the intended storage node, before preflight. Its exported `SERVER_ENV` must match the single `dev` or `prod` value in `/etc/environment`. `ORCHESTRATOR_ENV_FILE` must point to an owner-only plaintext dotenv prepared securely by the deployment process; it may contain `OPENCLOUD_DATA_PATH`, `OPENCLOUD_UID`, and `OPENCLOUD_GID`. Defaults are `/srv/opencloud/data`, `1000`, and `1000`. The Swarm stack uses the same variables. The script does not decrypt SOPS files or execute dotenv contents.
+
+```bash
+ORCHESTRATOR_ENV_FILE=/path/to/owner-only.env ./scripts/init-volumes.sh
+./scripts/preflight-host.sh /srv/opencloud/data
+```
+
+If a custom data path is configured, pass the same path to preflight. The script creates a missing directory with mode `0700` and the requested owner; it checks an existing directory without changing it or its contents. A mismatch stops execution for manual review. The caller needs the necessary filesystem privileges; do not reinitialize or recursively change ownership of existing OpenCloud data. Keep decrypted dotenv files out of Git and remove them when no longer needed.
+
 ## Group-to-role configuration
 
 On the Swarm manager, add `ENTRA_ADMIN_GROUP_ID` and `ENTRA_STAFF_GROUP_ID` to the appropriate SOPS environment file. They must be distinct canonical Entra group UUIDs. `SERVER_ENV` must be exported as `dev` or `prod`. The generated file is ignored by Git and must be regenerated after cloning.

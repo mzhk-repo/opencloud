@@ -341,13 +341,13 @@ CI/CD підключається останнім кроком проєкту (�
 - **Ціль:** Ідемпотентне створення каталогів стану з правильними правами перед деплоєм.
 - **Залежності:** 5.1
 - **Кроки реалізації:**
-  1. `scripts/init-volumes.sh`: `mkdir -p /srv/opencloud/data`, власник UID/GID контейнера, права каталогу; нічого більше не генерує. Змінні (шлях, UID) читаються з `$ORCHESTRATOR_ENV_FILE` лише безпечним парсингом (`grep` / `cut` / `awk`), ніколи `source`.
+  1. `scripts/init-volumes.sh` звіряє експортований `SERVER_ENV` із `/etc/environment` і створює каталог з mode `0700` і власником UID/GID контейнера; для наявного каталогу перевіряє права й власника без змін і зупиняється при невідповідності. `OPENCLOUD_DATA_PATH`, `OPENCLOUD_UID`, `OPENCLOUD_GID` читаються з owner-only plaintext `$ORCHESTRATOR_ENV_FILE` без виконання його вмісту; ті самі змінні застосовує стек.
   2. `init-volumes.sh` не рендерить конфіги; мапінг груп генерує `scripts/render-proxy-config.py` перед розгортанням.
 - **Файли / Директорії:** `scripts/init-volumes.sh`
 - **Критерії прийняття (Acceptance Criteria):**
-  - [ ] Другий запуск → `exit 0`, без змін
-  - [ ] Власник і права каталогу відповідають UID контейнера
-  - [ ] Відсутній env-файл → ненульовий код і зрозуміле повідомлення
+  - [x] Другий запуск → `exit 0`, без змін (тимчасовий каталог)
+  - [x] Власник і права каталогу відповідають UID контейнера (перевірено з UID/GID поточного користувача в `/tmp`)
+  - [x] Відсутній env-файл → ненульовий код і зрозуміле повідомлення
 - **Перевірка (Validation):**
 
   ```bash
@@ -363,7 +363,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Залежності:** 5.2
 - **Кроки реалізації:**
   1. `scripts/deploy-orchestrator-swarm.sh` приймає `ORCHESTRATOR_ENV_FILE`, `ENVIRONMENT_NAME` (`development` | `production`), `ORCHESTRATOR_MODE=swarm`, `STACK_NAME`; інший режим → відмова.
-  2. Порядок: 1а `preflight-host.sh` → перевірка мітки `storage=primary` (оркестратор працює на manager) → 1б `init-volumes.sh` → `reconcile-sops-secrets.sh ... -apply` (оновлення мапінгу) → `scripts/render-proxy-config.py --env-file ...`, збереження його виводу як мапінгу імен Configs → перевірка політик → `docker compose --env-file ... config` → `docker stack deploy` → post-deploy check. Помилка генерації зупиняє деплой.
+  2. Порядок: перевірка цільової storage-ноди й мітки `storage=primary` (оркестратор працює на manager) → 1б `init-volumes.sh` на storage-ноді → 1а `preflight-host.sh` на тому самому каталозі та ноді → `reconcile-sops-secrets.sh ... -apply` (оновлення мапінгу) → `scripts/render-proxy-config.py --env-file ...`, збереження його виводу як мапінгу імен Configs → перевірка політик → `docker compose --env-file ... config` → `docker stack deploy` → post-deploy check. Будь-яка помилка зупиняє деплой.
   3. Перевірка політик — кілька `grep -q` у функції оркестратора, без окремого скрипта: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, усі секрети external.
   4. Post-deploy check — функція очікування з таймаутом: `docker inspect --format '{{.State.Health.Status}}'` контейнера = `healthy` і `curl` на головну сторінку `https://<domain>/` повертає 200 (не `.well-known`, див. 6.1). Помилка → ненульовий код, пайплайн падає.
   5. Для `production` вимагати `-approval-context`.

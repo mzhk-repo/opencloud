@@ -2,7 +2,7 @@
 services:
   opencloud:
     image: ${OPENCLOUD_IMAGE:?Set OPENCLOUD_IMAGE}:${OPENCLOUD_IMAGE_TAG:?Set OPENCLOUD_IMAGE_TAG}
-    user: "1000:1000"
+    user: "${OPENCLOUD_UID:-1000}:${OPENCLOUD_GID:-1000}"
     environment:
       OC_URL: https://${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}
       OC_EXCLUDE_RUN_SERVICES: idp
@@ -34,13 +34,13 @@ services:
       STORAGE_USERS_ID_CACHE_STORE: nats-js-kv
     volumes:
       - type: bind
-        source: /srv/opencloud/data
+        source: ${OPENCLOUD_DATA_PATH:-/srv/opencloud/data}
         target: /var/lib/opencloud
     secrets:
       - source: opencloud_yaml
         target: /etc/opencloud/opencloud.yaml
-        uid: "1000"
-        gid: "1000"
+        uid: "${OPENCLOUD_UID:-1000}"
+        gid: "${OPENCLOUD_GID:-1000}"
         mode: 0400
     configs:
       - source: proxy_config
