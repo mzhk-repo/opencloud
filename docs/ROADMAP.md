@@ -12,7 +12,7 @@
 - **Entra ID, MS 365 Education A1:** ізольований PoC перевірив мапінг GUID Security groups із клейму `groups` на ролі admin/user; користувач без відповідної групи не ввійшов, але його профіль міг створитися до відмови. Остаточне масове призначення співробітників і безпекові умови залишаються відкритими (2.2).
 - **Групи з OIDC:** власник обрав офіційний образ без власного патча і прийняв штатну синхронізацію при JIT: GUID-групи можуть створюватися локально, а членства, відсутні в клеймі, видаляються. Ручне членство видалено під час PoC; відсутній клейм може означати порожній список. Самостійне вимкнення синхронізації запитано в [upstream issue #4058](https://github.com/opencloud-eu/opencloud/issues/4058); запропонований там перемикач у 7.2.5 не існує.
 - **Секрети:** SOPS → один Swarm Secret; `reconcile-sops-secrets.sh` з хешованими іменами лишається за стандартом (4.1). За рішенням власника dev і prod використовують публічний age-ключ SMTP2Graph; відповідний приватний ключ відкриває обидва середовища. `IDM_ADMIN_PASSWORD` для входу не використовується; break-glass — другий admin-акаунт в Entra.
-- **Ресурси:** без жорсткого ліміту 2560M і без CPU-ліміту; 70% RAM хоста — орієнтир для production (5.1). Для dev власник проєкту обрав мінімальний ліміт; конкретне значення потрібно визначити та перевірити на практиці.
+- **Ресурси:** типовий ліміт контейнера `2.5G`, перевизначається через `OPENCLOUD_MEM_LIMIT`; CPU-ліміту немає. Значення треба перевірити під навантаженням; 70% RAM хоста лишається довідковим орієнтиром (5.1).
 - **Бекап:** сервіс зупиняється на час `borg create` (`trap EXIT` повертає його), без прапорців `--xattrs` / `--acls`; restore — процедура в runbook без скрипта, невдалий restore лишає сервіс зупиненим (6.2, 6.3).
 - **Скрипти:** п'ять замість десяти — `preflight-host`, `init-volumes`, `reconcile-sops-secrets`, `deploy-orchestrator-swarm`, `backup`.
 - **Поза Фазою 1:** CSP/`frame-ancestors` і AC-5 для Drupal (переходять у Фазу 2), desktop/mobile-клієнти, міграція з Google Drive. Штатне використання груп із токена входить до поточного PoC.
@@ -284,10 +284,10 @@
   7. Внутрішні ключі `opencloud.yaml` не ротуються рутинно: це потребує нового `init` і узгодження з даними idm `[перевірити]`. Записати у відомі обмеження (6.5).
 - **Файли / Директорії:** `.sops.yaml`, `env.dev.enc`, `env.prod.enc`, `scripts/reconcile-sops-secrets.sh`, `.env.example`
 - **Критерії прийняття (Acceptance Criteria):**
-  - [ ] Другий запуск `reconcile` → `exit 0`, нових секретів не створено
-  - [ ] Негативні сценарії дають ненульовий код і зрозуміле повідомлення: немає env-файлу, плейсхолдер, невідповідність `SERVER_ENV`, права plaintext-файлу ширші за `600`, незашифрований файл
-  - [ ] У мапінгу, виводі та `docker service inspect` немає значень секретів
-  - [ ] Prod age-ключ не лежить у репозиторії, а його копія доступна без prod-ноди (потрібно для DR, 6.4)
+  - [x] Другий запуск `reconcile` → `exit 0`, мапінг dev-секрету не змінився (підтверджено власником)
+  - [x] Негативні сценарії дають ненульовий код: немає env-файлу, плейсхолдер, невідповідність `SERVER_ENV`, права plaintext-файлу ширші за `600`, незашифрований файл
+  - [x] У dev-мапінгу та виводі reconcile немає значень секретів; `docker service inspect` ізольованого сервісу не містить конфігурації чи passphrase Borg
+  - [ ] Prod age-ключ не лежить у репозиторії, а його копія доступна без prod-ноди (власник підтвердив наявність копії; незалежна перевірка відновлення залишається в 6.4)
 - **Перевірка (Validation):**
 
   ```bash
@@ -305,7 +305,7 @@
 
 - Секрети існують лише в SOPS і в Swarm; у мапінгах, логах і git значень немає
 - `reconcile-sops-secrets.sh` ідемпотентний і проходить негативні сценарії
-- Сервіс стартує з `opencloud.yaml` лише зі Swarm Secret
+- Ізольований сервіс із порожнім тимчасовим сховищем запущено з `opencloud.yaml` зі Swarm Secret: UID 1000 читає файл із `0400`, HTTP 200; запуск цільового Swarm-стека й перевірка відновлення залишаються для наступних фаз.
 
 ## Фаза 5: Пакування та деплой на dev
 
@@ -317,22 +317,22 @@ CI/CD підключається останнім кроком проєкту (�
 - **Залежності:** 4.1
 - **Кроки реалізації:**
   1. Образ із `OPENCLOUD_IMAGE` і `OPENCLOUD_IMAGE_TAG`; `replicas: 1`; `placement.constraints: [node.labels.storage == primary]`; `update_config` (`parallelism: 1`, `order: stop-first`, `failure_action: rollback`, `delay: 10s`); `restart_policy` (`on-failure`, `delay: 5s`; `max_attempts: 5` залишити лише свідомо, бо після п'яти збоїв сервіс лишиться зупиненим).
-  2. Ресурси: без жорсткого ліміту 2560M і без CPU-ліміту; `limits.memory` = `${OPENCLOUD_MEM_LIMIT}` — орієнтир для production 70% RAM хоста (значення дає `preflight-host.sh`), для dev — мінімальний ліміт, який ще потрібно визначити; reservation 512M / 0.5 CPU. Після навантаження з 3.3 підтвердити ліміти `[перевірити]`.
-  3. Монтування: `/srv/opencloud/data` → `/var/lib/opencloud`; `opencloud.yaml` як external Swarm Secret (ім'я з мапінгу) у `/etc/opencloud/opencloud.yaml` (`uid` і `mode` з 4.1); за потреби статичний `config/proxy.yaml` у `/etc/opencloud/proxy.yaml` лише для читання. Окремого host-каталогу конфігу немає, якщо це підтвердила задача 1.3.
+  2. Ресурси: `limits.memory` = `${OPENCLOUD_MEM_LIMIT:-2.5G}`, без CPU-ліміту; reservation 512M / 0.5 CPU. Після навантаження з 3.3 підтвердити ліміт `[перевірити]`.
+  3. Монтування: `/srv/opencloud/data` → `/var/lib/opencloud`; `opencloud.yaml` як external Swarm Secret (ім'я з мапінгу) у `/etc/opencloud/opencloud.yaml` (`uid` і `mode` з 4.1); мапінг груп `proxy.yaml` і CSP — Swarm Configs. Шлях до підготовленого мапінгу задає `OPENCLOUD_PROXY_CONFIG_FILE` на manager-ноді.
   4. Non-root: UID процесу в офіційному образі узгодити з `init-volumes.sh` (5.2). Власного Dockerfile немає.
   5. Traefik labels додаються в 5.4, healthcheck — у 6.1.
   6. Публічні посилання: `OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD: "false"`; зберегти вимогу пароля для посилань із записом через `OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD: "true"`.
 - **Файли / Директорії:** `docker-stack.yml`, `config/proxy.yaml` (за потреби), `.env.example`
 - **Критерії прийняття (Acceptance Criteria):**
-  - [ ] Конфіг рендериться без помилок
-  - [ ] У відрендереному конфігу немає значень секретів, лише імена
-  - [ ] Політики `replicas: 1`, `stop-first`, `placement` присутні; ліміт пам'яті береться зі змінної, значення `2560M` відсутнє
+  - [x] Конфіг рендериться без помилок для тестових значень через Compose та Docker Stack
+  - [x] У відрендереному конфігу немає значень секретів, лише ім'я Swarm Secret
+  - [x] Політики `replicas: 1`, `stop-first`, `placement` присутні; типовий ліміт `2.5G` можна перевизначити
 - **Перевірка (Validation):**
 
   ```bash
   yamllint docker-stack.yml
-  docker compose --env-file /tmp/map.env -f docker-stack.yml config -q
-  docker compose --env-file /tmp/map.env -f docker-stack.yml config | grep -E 'replicas|order|constraints|memory'
+  docker compose --env-file .env.example --env-file /tmp/map.env -f docker-stack.yml config -q
+  docker compose --env-file .env.example --env-file /tmp/map.env -f docker-stack.yml config | grep -E 'replicas|order|constraints|memory'
   ! grep -n '2560M' docker-stack.yml
   ```
 

@@ -1,0 +1,79 @@
+---
+services:
+  opencloud:
+    image: ${OPENCLOUD_IMAGE:?Set OPENCLOUD_IMAGE}:${OPENCLOUD_IMAGE_TAG:?Set OPENCLOUD_IMAGE_TAG}
+    user: "1000:1000"
+    environment:
+      OC_URL: https://${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}
+      OC_EXCLUDE_RUN_SERVICES: idp
+      OC_OIDC_ISSUER: https://login.microsoftonline.com/${ENTRA_TENANT_ID:?Set ENTRA_TENANT_ID}/v2.0
+      OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD: "false"
+      OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD: "true"
+      PROXY_HTTP_ADDR: 0.0.0.0:9200
+      PROXY_OIDC_INSECURE: "false"
+      PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD: jwt
+      PROXY_OIDC_SKIP_USER_INFO: "true"
+      PROXY_CSP_CONFIG_FILE_LOCATION: /etc/opencloud/entra-csp.yaml
+      PROXY_AUTOPROVISION_ACCOUNTS: "true"
+      PROXY_AUTOPROVISION_CLAIM_USERNAME: upn
+      PROXY_USER_OIDC_CLAIM: upn
+      PROXY_USER_CS3_CLAIM: username
+      PROXY_ROLE_ASSIGNMENT_DRIVER: oidc
+      PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM: groups
+      GRAPH_USERNAME_MATCH: none
+      GRAPH_ASSIGN_DEFAULT_USER_ROLE: "false"
+      WEB_OIDC_CLIENT_ID: ${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}
+      WEB_OIDC_SCOPE: >-
+        openid profile email offline_access
+        api://${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}/access_as_user
+      WEBFINGER_WEB_OIDC_CLIENT_ID: ${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}
+      WEBFINGER_WEB_OIDC_CLIENT_SCOPES: >-
+        openid profile email offline_access
+        api://${ENTRA_CLIENT_ID:?Set ENTRA_CLIENT_ID}/access_as_user
+      STORAGE_USERS_DRIVER: posix
+      STORAGE_USERS_ID_CACHE_STORE: nats-js-kv
+    volumes:
+      - type: bind
+        source: /srv/opencloud/data
+        target: /var/lib/opencloud
+    secrets:
+      - source: opencloud_yaml
+        target: /etc/opencloud/opencloud.yaml
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    configs:
+      - source: proxy_config
+        target: /etc/opencloud/proxy.yaml
+      - source: entra_csp
+        target: /etc/opencloud/entra-csp.yaml
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.storage == primary
+      update_config:
+        parallelism: 1
+        order: stop-first
+        failure_action: rollback
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          memory: ${OPENCLOUD_MEM_LIMIT:-2.5G}
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+
+secrets:
+  opencloud_yaml:
+    external: true
+    name: ${OPENCLOUD_YAML_SECRET_NAME:?Set OPENCLOUD_YAML_SECRET_NAME}
+
+configs:
+  proxy_config:
+    file: ${OPENCLOUD_PROXY_CONFIG_FILE:?Set OPENCLOUD_PROXY_CONFIG_FILE}
+  entra_csp:
+    file: ./config/entra-csp.yaml

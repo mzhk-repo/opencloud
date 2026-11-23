@@ -53,6 +53,14 @@ The host must have exactly one literal `SERVER_ENV=dev` or `SERVER_ENV=prod` in 
 
 Use `env.prod.enc`, `-environment prod`, and `-approval-context <approval-id>` for an explicitly authorized production apply. The identifier records context and does not itself grant approval. Apply requires access to a Swarm manager, creates the content-addressed secret if absent, and atomically updates a mapping containing only its name. It does not deploy a service or remove old secrets. Securely remove temporary plaintext and mapping files when no longer needed. Service startup from the secret and recovery remain to be validated.
 
+## Swarm stack preparation
+
+`docker-stack.yml` defines one non-root OpenCloud replica with a PosixFS data bind mount and the external secret produced by reconciliation. Its default memory limit is `2.5G` (2.5 GiB); `OPENCLOUD_MEM_LIMIT` overrides it. Confirm the limit under the expected load.
+
+Set the image, domain, Entra identifiers and secret name before rendering. Prepare an actual group-to-role mapping using `config/proxy.groups.example.yaml` as a template and set `OPENCLOUD_PROXY_CONFIG_FILE` to its path on the Swarm manager. The stack uploads that mapping and the Entra CSP as Swarm Configs; neither should contain secrets. Swarm Configs are immutable, so changing either configuration requires a new config name and a service update; config versioning remains part of the deployment workflow.
+
+The stack does not yet include Traefik routing or a healthcheck. Before deployment, prepare the data directory with the correct UID and xattr support, configure Entra and resolve the identity security gates described in the roadmap. The deployment orchestrator and dev acceptance are later tasks.
+
 ## Local Entra and internal login
 
 The main Compose configuration uses Entra with JIT provisioning and group-to-role mapping at `https://localhost:9200`. OpenCloud 7.2.5 does not enforce the access-token audience and UPN is mutable; keep this instance on loopback until those risks are resolved. Entra must supply `upn`, `name`, `email` and group claims. Configure the SPA redirect URIs for port 9200 and the `access_as_user` scope.

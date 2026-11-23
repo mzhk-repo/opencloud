@@ -1,5 +1,29 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-23 — Prepare OpenCloud Swarm stack
+
+- **Context:** Task 5.1 defines the OpenCloud Swarm service; the owner selected a configurable default memory limit of 2.5G.
+- **Change:** Added the single-replica non-root stack with Entra, group mapping and CSP configs, external OpenCloud secret, PosixFS bind mount, placement and update policies. Updated example settings and operational documentation.
+- **Verification:** Compose and Docker Stack configuration rendered with synthetic values; default and overridden memory values and key service policies were checked. The YAML parsed successfully.
+- **Risks:** The stack, group mapping and 2.5 GiB limit need runtime and load validation. Traefik, healthcheck, config rotation, identity security gates and deployment remain pending.
+- **Rollback:** Remove the stack and revert the related example and documentation changes; do not remove existing data or Swarm secrets.
+
+## 2026-11-23 — Verify dev Swarm secret and non-root startup
+
+- **Context:** The owner applied dev reconciliation twice and enabled Docker access for task 4.1 validation.
+- **Change:** Recorded dev acceptance evidence and retained the independent recovery and target stack checks for later phases.
+- **Verification:** The owner reported two successful reconciliations with the same name-only mapping; the secret exists. An isolated temporary Swarm service ran the official image as UID 1000, read the secret with mode 0400 and returned HTTP 200. Service inspect did not contain the encoded or decoded config or Borg passphrase. Five negative scenarios and ShellCheck passed; temporary services were removed.
+- **Risks:** This used empty temporary state, not the target Swarm stack; production provisioning and recovery remain unverified. The owner confirmed an off-node age-key copy.
+- **Rollback:** Revert this entry and the related roadmap evidence; retain the dev Swarm secret until its lifecycle is reviewed.
+
+## 2026-11-22 — Record task 4.1 follow-up
+
+- **Context:** The owner corrected the dev configuration and requested verification of Swarm reconciliation and a non-root secret mount.
+- **Change:** Recorded the owner's confirmation that an age-key recovery copy is available off the production node.
+- **Verification:** The owner reports a matching configuration; the dev reconcile dry run succeeded independently. The removed temporary decrypted filename is absent from the currently available Git refs. Docker API access was denied to the agent.
+- **Risks:** Real Swarm reconciliation, non-root service startup and independent recovery remain unverified. Earlier Git reflogs or external copies may retain the removed file.
+- **Rollback:** Revert this documentation entry and the related roadmap note.
+
 ## 2026-11-22 — Document SOPS secret preparation
 
 - **Context:** The operator retained base64 for `opencloud.yaml` and requested commands to write and verify it without copying the value.

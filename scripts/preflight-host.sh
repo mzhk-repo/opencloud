@@ -53,4 +53,4 @@ if [[ ! $memory_kib =~ ^[0-9]+$ ]] || (( memory_kib == 0 )); then
   exit 1
 fi
 echo "Storage preflight passed: $data_path ($filesystem), $available_kib KiB available"
-echo "Reference OPENCLOUD_MEM_LIMIT=$((memory_kib * 70 / 100 / 1024))M (70% of host RAM; choose dev limit separately)"
+echo "Reference OPENCLOUD_MEM_LIMIT=$((memory_kib * 70 / 100 / 1024))M (70% of host RAM; stack default 2.5G requires workload validation)"
