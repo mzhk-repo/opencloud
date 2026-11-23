@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-23 — Connect OpenCloud to Traefik
+
+- **Context:** Cloudflare Tunnel terminates TLS; Traefik uses the shared `web` entrypoint and the current `proxy-net` overlay is unencrypted.
+- **Change:** Added external overlay routing and explicit HTTP backend, HTTPS forwarding headers and configurable network name. Production orchestration requires an encrypted overlay; the unencrypted dev overlay emits a warning.
+- **Verification:** Compose and Docker Stack rendering, the routing contract check and 18 orchestrator checks passed. An isolated Traefik file-provider route to a temporary OpenCloud Swarm service returned HTTP 200; it used its own network and did not alter live Traefik or OpenCloud services.
+- **Risks:** Shared Traefik Swarm-provider routing, Cloudflare ingress, Entra login and real TUS transfers are unverified. The staged Traefik 5-minute timeout is not present in the running service. Overlay encryption does not provide end-to-end TLS on a node.
+- **Rollback:** Revert the stack routing, network validation and related examples and documentation; leave live services and networks unchanged.
+
 ## 2026-11-23 — Assign the local storage label on deployment
 
 - **Context:** The owner requested automatic `storage=primary` labelling of the node running deployment.

@@ -61,7 +61,9 @@ Set the image, domain, Entra identifiers and secret name before rendering. `./.l
 
 Store `ENTRA_ADMIN_GROUP_ID` and `ENTRA_STAFF_GROUP_ID` in each environment's SOPS file; the generator can read them directly with `--env-file`. The existing encrypted environment files are not updated by this change. The deployment orchestrator and CI workflow do not yet exist; task 5.3 must invoke the generator and pass its name-only output to the stack before CI is connected in task 6.6.
 
-The stack does not yet include Traefik routing or a healthcheck. The deployment orchestrator blocks deployment until both are configured and currently requires the storage node to be the manager. On deployment it assigns `storage=primary` to that node if no node already has the label; conflicting labels stop the deployment. Prepare the data directory with the correct UID and xattr support, configure Entra and resolve the identity security gates described in the roadmap. CI integration and dev acceptance are later tasks.
+The stack routes through the external `OPENCLOUD_PROXY_NETWORK` overlay (default `proxy-net`) to Traefik's `web` entrypoint. TLS terminates at Cloudflare Tunnel; Traefik and OpenCloud use HTTP on the overlay, and the router sets the external HTTPS forwarding headers. The current `proxy-net` is not encrypted, so this hop carries application data and tokens without TLS. The orchestrator rejects an unencrypted overlay for production; an encrypted overlay must be shared with Traefik before production deployment. Docker overlay encryption protects inter-node traffic and does not provide end-to-end TLS within a node.
+
+The stack does not yet include a healthcheck. The deployment orchestrator blocks deployment until it is configured and currently requires the storage node to be the manager. On deployment it assigns `storage=primary` to that node if no node already has the label; conflicting labels stop the deployment. Prepare the data directory with the correct UID and xattr support, configure Entra and resolve the identity security gates described in the roadmap. CI integration and dev acceptance are later tasks.
 
 ## Local Entra and internal login
 

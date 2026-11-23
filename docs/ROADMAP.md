@@ -364,7 +364,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Кроки реалізації:**
   1. `scripts/deploy-orchestrator-swarm.sh` приймає `ORCHESTRATOR_ENV_FILE`, `ENVIRONMENT_NAME` (`development` | `production`), `ORCHESTRATOR_MODE=swarm`, `STACK_NAME`; інший режим → відмова.
   2. Порядок: перевірка середовища та генерація Configs і dry-run секрету в tmpfs → рендер і перевірка політик → перевірка manager і storage-ноди → призначення `storage=primary` поточному manager, якщо мітки немає → `init-volumes.sh` → `preflight-host.sh` → `reconcile-sops-secrets.sh ... -apply` → `docker stack deploy` → post-deploy check. Якщо мітка вже на іншій ноді або поточна нода має інше значення `storage`, деплой зупиняється. При помилці після призначення мітка лишається. Підготовка віддаленої storage-ноди не реалізована.
-  3. Перевірка структурованої конфігурації: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, external secret, увімкнений healthcheck та Traefik. Поточний стек не має healthcheck і Traefik; деплой блокується до задач 5.4 та 6.1.
+  3. Перевірка структурованої конфігурації: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, external secret, увімкнений healthcheck та Traefik. Поточний стек не має healthcheck; деплой блокується до задачі 6.1. HTTP до OpenCloud потребує зашифрованої overlay-мережі для production.
   4. Post-deploy check — функція очікування з таймаутом: `docker inspect --format '{{.State.Health.Status}}'` контейнера = `healthy` і `curl` на головну сторінку `https://<domain>/` повертає 200 (не `.well-known`, див. 6.1). Помилка → ненульовий код, пайплайн падає.
   5. Для `production` вимагати `--approval-context`; `scripts/ci-deploy-swarm.sh` адаптує середовище shared workflow до явного `--deploy --apply`.
 - **Файли / Директорії:** `scripts/deploy-orchestrator-swarm.sh`
@@ -386,9 +386,9 @@ CI/CD підключається останнім кроком проєкту (�
 - **Ціль:** Роутер OpenCloud пропускає TUS-чанки без буферизації й обривів.
 - **Залежності:** 5.1
 - **Кроки реалізації:**
-  1. Labels на сервісі: Host-правило, TLS, entrypoint, порт 9200, спільна overlay-мережа.
+  1. Labels на сервісі: Host-правило, entrypoint `web`, HTTP-порт 9200 і спільна overlay-мережа `OPENCLOUD_PROXY_NETWORK` (типово `proxy-net`). TLS завершується в Cloudflare Tunnel; `PROXY_TLS=false`, router задає `X-Forwarded-Proto=https` і `X-Forwarded-Port=443`.
   2. Не додавати buffering middleware (отже, без `maxRequestBodyBytes`).
-  3. `respondingTimeouts` задаються на рівні entrypoint, тож змінюють поведінку всіх сервісів спільного Traefik. Узгодити з власником Traefik помірне значення (хвилини, TUS шле невеликі чанки) замість `0`; перевірити `forwardingTimeouts` `[перевірити поточні значення]`.
+  3. У конфігурації Traefik підготовлено `web` readTimeout 5m; діючий сервіс ще не має цього аргументу. Значення впливає на всі сервіси entrypoint і потребує перевірки на реальних TUS-чанках та після окремого деплою Traefik. Поточна `proxy-net` не зашифрована; production потребує encrypted overlay між Traefik та OpenCloud.
   4. Задокументувати зміни на боці центрального Traefik в `AI_CONTEXT.md`.
 - **Файли / Директорії:** `docker-stack.yml`, `docs/AI_CONTEXT.md`
 - **Критерії прийняття (Acceptance Criteria):**
@@ -398,7 +398,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Перевірка (Validation):**
 
   ```bash
-  docker compose --env-file /tmp/map.env -f docker-stack.yml config | grep -i traefik
+  docker compose --env-file .env.example --env-file /tmp/map.env --env-file .local/proxy-config.env -f docker-stack.yml config | grep -i traefik
   curl -sSI https://<dev-domain>/ | head -1
   ```
 

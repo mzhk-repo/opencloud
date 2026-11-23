@@ -10,6 +10,7 @@ services:
       OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD: "false"
       OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD: "true"
       PROXY_HTTP_ADDR: 0.0.0.0:9200
+      PROXY_TLS: "false"
       PROXY_OIDC_INSECURE: "false"
       PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD: jwt
       PROXY_OIDC_SKIP_USER_INFO: "true"
@@ -47,8 +48,21 @@ services:
         target: /etc/opencloud/proxy.yaml
       - source: entra_csp
         target: /etc/opencloud/entra-csp.yaml
+    networks:
+      - proxy
     deploy:
       replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.swarm.network=${OPENCLOUD_PROXY_NETWORK:-proxy-net}"
+        - "traefik.http.routers.opencloud.rule=Host(`${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}`)"
+        - "traefik.http.routers.opencloud.entrypoints=web"
+        - "traefik.http.routers.opencloud.service=opencloud"
+        - "traefik.http.routers.opencloud.middlewares=opencloud-forwarded-https"
+        - "traefik.http.middlewares.opencloud-forwarded-https.headers.customrequestheaders.X-Forwarded-Proto=https"
+        - "traefik.http.middlewares.opencloud-forwarded-https.headers.customrequestheaders.X-Forwarded-Port=443"
+        - "traefik.http.services.opencloud.loadbalancer.server.port=9200"
+        - "traefik.http.services.opencloud.loadbalancer.server.scheme=http"
       placement:
         constraints:
           - node.labels.storage == primary
@@ -79,3 +93,8 @@ configs:
   entra_csp:
     name: ${OPENCLOUD_ENTRA_CSP_CONFIG_NAME:?Set OPENCLOUD_ENTRA_CSP_CONFIG_NAME}
     file: ./config/entra-csp.yaml
+
+networks:
+  proxy:
+    external: true
+    name: ${OPENCLOUD_PROXY_NETWORK:-proxy-net}

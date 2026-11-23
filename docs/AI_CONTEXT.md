@@ -12,7 +12,7 @@ Phase 1 plans a university file store for up to 1,000 staff using OpenCloud. A l
 
 ## Architecture Snapshot
 
-Browser → Traefik → one OpenCloud replica in Docker Swarm; Entra ID provides authentication. The planned host data mount is `/srv/opencloud/data` → `/var/lib/opencloud` on XFS/ext4 with user xattrs. Do not modify the storage tree while the service is running.
+Browser → Cloudflare Tunnel → Traefik → one OpenCloud replica in Docker Swarm; Entra ID provides authentication. TLS ends at Cloudflare; the Traefik-to-OpenCloud hop uses HTTP. Current `proxy-net` is unencrypted; the orchestrator requires an encrypted overlay for production. The planned host data mount is `/srv/opencloud/data` → `/var/lib/opencloud` on XFS/ext4 with user xattrs. Do not modify the storage tree while the service is running.
 
 The SPEC includes a separate host config directory; the ROADMAP proposes a Swarm Secret instead, subject to the state-layout investigation. Back up all required state and configuration; preserve xattrs and verify recovery of users, grants and public links.
 
@@ -30,7 +30,7 @@ Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, 
 
 - `docs/SPEC.md`, `docs/ROADMAP.md`: requirements and implementation plan.
 - `CHANGELOG.md` and `docs/changelogs/`: changelog index and active volume.
-- `scripts/init-volumes.sh` prepares a new data directory; `scripts/preflight-host.sh` checks it. The Swarm orchestrator uses the manager as storage, assigns its missing `storage=primary` label and blocks deployment until healthcheck and Traefik are configured. CI and runtime acceptance remain pending.
+- `scripts/init-volumes.sh` prepares a new data directory; `scripts/preflight-host.sh` checks it. The Swarm orchestrator uses the manager as storage, assigns its missing `storage=primary` label and blocks deployment until a healthcheck is configured. CI and runtime acceptance remain pending.
 - Local Compose defaults to Entra on port 9200; `docker-compose.internal.yml` switches the same instance to its internal IdP. The main instance has not yet been validated with Entra and group synchronization.
 - `scripts/reconcile-sops-secrets.sh` prepares versioned Swarm secrets; selects dev/prod from `/etc/environment` and verifies exported `SERVER_ENV`. Environment-specific settings require validation before deployment.
 - `scripts/render-proxy-config.py` generates ignored role mapping and content-based Swarm Config names from Entra group IDs; the planned orchestrator must invoke it before deployment.

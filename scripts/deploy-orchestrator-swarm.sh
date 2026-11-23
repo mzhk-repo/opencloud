@@ -69,8 +69,8 @@ from pathlib import Path
 import re
 import sys
 import uuid
-keys = ('OPENCLOUD_IMAGE', 'OPENCLOUD_IMAGE_TAG', 'OPENCLOUD_DOMAIN', 'ENTRA_TENANT_ID', 'ENTRA_CLIENT_ID', 'OPENCLOUD_MEM_LIMIT', 'OPENCLOUD_DATA_PATH', 'OPENCLOUD_UID', 'OPENCLOUD_GID')
-values = {'OPENCLOUD_IMAGE': 'opencloudeu/opencloud', 'OPENCLOUD_MEM_LIMIT': '2.5G', 'OPENCLOUD_DATA_PATH': '/srv/opencloud/data', 'OPENCLOUD_UID': '1000', 'OPENCLOUD_GID': '1000'}
+keys = ('OPENCLOUD_IMAGE', 'OPENCLOUD_IMAGE_TAG', 'OPENCLOUD_DOMAIN', 'ENTRA_TENANT_ID', 'ENTRA_CLIENT_ID', 'OPENCLOUD_MEM_LIMIT', 'OPENCLOUD_DATA_PATH', 'OPENCLOUD_UID', 'OPENCLOUD_GID', 'OPENCLOUD_PROXY_NETWORK')
+values = {'OPENCLOUD_IMAGE': 'opencloudeu/opencloud', 'OPENCLOUD_MEM_LIMIT': '2.5G', 'OPENCLOUD_DATA_PATH': '/srv/opencloud/data', 'OPENCLOUD_UID': '1000', 'OPENCLOUD_GID': '1000', 'OPENCLOUD_PROXY_NETWORK': 'proxy-net'}
 seen = set()
 for line in Path(sys.argv[1]).read_text().splitlines():
     if not line.strip() or line.startswith('#'):
@@ -94,6 +94,8 @@ for key in ('ENTRA_TENANT_ID', 'ENTRA_CLIENT_ID'):
         sys.exit('ERROR: invalid UUID: ' + key)
 if not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?', values['OPENCLOUD_DOMAIN']):
     sys.exit('ERROR: invalid OpenCloud domain')
+if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}', values['OPENCLOUD_PROXY_NETWORK']):
+    sys.exit('ERROR: invalid proxy network name')
 if not re.fullmatch(r'[0-9]+(?:\.[0-9]+)?[kKmMgG]', values['OPENCLOUD_MEM_LIMIT']):
     sys.exit('ERROR: invalid memory limit')
 for key in ('OPENCLOUD_UID', 'OPENCLOUD_GID'):
@@ -153,6 +155,21 @@ if labels.get('traefik.enable', '').lower() != 'true':
 PY
 docker_clean stack config -c docker-stack.yml > /dev/null || die 'Swarm stack configuration is invalid'
 [[ "$(docker_clean info --format '{{.Swarm.LocalNodeState}} {{.Swarm.ControlAvailable}}')" == 'active true' ]] || die 'an active Swarm manager is required'
+docker_clean network inspect "$OPENCLOUD_PROXY_NETWORK" --format '{{json .}}' > "$stage/network.json" || die 'cannot inspect the configured proxy network'
+network_security=$(python3 - "$stage/network.json" "$environment" <<'PY'
+import json
+from pathlib import Path
+import sys
+network = json.loads(Path(sys.argv[1]).read_text())
+if network.get('Driver') != 'overlay' or network.get('Scope') != 'swarm':
+    sys.exit('ERROR: proxy network must be a Swarm overlay')
+encrypted = 'encrypted' in (network.get('Options') or {})
+if sys.argv[2] == 'prod' and not encrypted:
+    sys.exit('ERROR: production HTTP backend requires an encrypted overlay')
+print('encrypted' if encrypted else 'unencrypted')
+PY
+) || die 'proxy network validation failed'
+[[ "$network_security" == encrypted ]] || log 'WARNING: the proxy overlay is not encrypted; backend HTTP traffic is unencrypted'
 node_id=$(docker_clean info --format '{{.Swarm.NodeID}}')
 node_list=$(docker_clean node ls --quiet --filter 'node.label=storage=primary') || die 'cannot list storage nodes'
 [[ -z "$node_list" || "$node_list" == "$node_id" ]] || die 'storage=primary is already assigned to another node or to multiple nodes'

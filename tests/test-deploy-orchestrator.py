@@ -66,6 +66,9 @@ elif a[:2]==['stack','config']: pass
 elif a[:2]==['stack','deploy']:
  with (root/'trace').open('a') as f: f.write('deploy\\n')
  if (root/'fail_deploy').exists(): sys.exit(1)
+elif a[:2]==['network','inspect']:
+ if (root/'bad_network').exists(): sys.exit(1)
+ print(json.dumps({'Driver': 'overlay', 'Scope': 'swarm', 'Options': {}}))
 elif a[0]=='info': print('active true' if 'ControlAvailable' in a[-1] else 'node123')
 elif a[:2]==['node','ls']:
  if '--quiet' not in a or '--no-trunc' in a: sys.exit(1)
@@ -106,6 +109,7 @@ else: sys.exit(1)
     def test_success_order(self):
         result = self.run_script('--deploy', '--apply')
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('proxy overlay is not encrypted', result.stderr)
         self.assertEqual(self.events(), ['init-volumes', 'preflight-host', 'reconcile', 'deploy'])
 
     def test_check_changes_no_state(self):
@@ -162,6 +166,28 @@ else: sys.exit(1)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('already assigned to another node', result.stderr)
         self.assertEqual(self.events(), [])
+
+    def test_missing_proxy_network_stops_before_mutation(self):
+        (self.root / 'bad_network').touch()
+        result = self.run_script('--deploy', '--apply')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('cannot inspect the configured proxy network', result.stderr)
+        self.assertEqual(self.events(), [])
+
+    def test_production_network_policy_requires_encrypted_overlay(self):
+        script = (ROOT / 'scripts/deploy-orchestrator-swarm.sh').read_text()
+        start = 'network_security=$(python3 - "$stage/network.json" "$environment" <<\'PY\'\n'
+        policy = script.split(start, 1)[1].split('\nPY\n', 1)[0]
+        network = self.root / 'network.json'
+        for environment, driver, options, expected in (
+            ('dev', 'overlay', {}, 0),
+            ('prod', 'overlay', {}, 1),
+            ('prod', 'overlay', {'encrypted': ''}, 0),
+            ('prod', 'bridge', {'encrypted': ''}, 1),
+        ):
+            network.write_text(json.dumps({'Driver': driver, 'Scope': 'swarm', 'Options': options}))
+            result = subprocess.run(['python3', '-c', policy, str(network), environment], text=True, capture_output=True)
+            self.assertEqual(result.returncode, expected)
 
     def test_unlabelled_check_does_not_change_node(self):
         (self.root / 'unlabelled').touch()
