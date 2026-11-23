@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-23 — Generate Entra group mapping for Swarm
+
+- **Context:** The ignored local proxy mapping is absent on a freshly cloned deployment host; immutable Swarm Configs also need versioned names.
+- **Change:** Added a UUID-validated mapping generator and content-based names for proxy and CSP configs. Documented the environment inputs and required integration into the future orchestrator.
+- **Verification:** Synthetic SOPS group generation, repeatability and invalid inputs were checked. An isolated Swarm stack using the stack definition with a temporary data path and a current-node placement constraint started as UID 1000, read its secret and configs, and returned HTTP 200. A second isolated stack accepted two deployments with different versioned group configs; temporary stack resources were removed.
+- **Risks:** Actual Entra group IDs must be added to the appropriate encrypted environment files. The orchestrator and CI workflow are not implemented; real identity authorization, production deployment and live data remain unverified.
+- **Rollback:** Revert the generator, stack config names and related documentation; retain existing encrypted environments, data and Swarm secrets.
+
 ## 2026-11-23 — Prepare OpenCloud Swarm stack
 
 - **Context:** Task 5.1 defines the OpenCloud Swarm service; the owner selected a configurable default memory limit of 2.5G.

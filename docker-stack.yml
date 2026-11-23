@@ -74,6 +74,8 @@ secrets:
 
 configs:
   proxy_config:
+    name: ${OPENCLOUD_PROXY_CONFIG_NAME:?Set OPENCLOUD_PROXY_CONFIG_NAME}
     file: ${OPENCLOUD_PROXY_CONFIG_FILE:?Set OPENCLOUD_PROXY_CONFIG_FILE}
   entra_csp:
+    name: ${OPENCLOUD_ENTRA_CSP_CONFIG_NAME:?Set OPENCLOUD_ENTRA_CSP_CONFIG_NAME}
     file: ./config/entra-csp.yaml

@@ -318,7 +318,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Кроки реалізації:**
   1. Образ із `OPENCLOUD_IMAGE` і `OPENCLOUD_IMAGE_TAG`; `replicas: 1`; `placement.constraints: [node.labels.storage == primary]`; `update_config` (`parallelism: 1`, `order: stop-first`, `failure_action: rollback`, `delay: 10s`); `restart_policy` (`on-failure`, `delay: 5s`; `max_attempts: 5` залишити лише свідомо, бо після п'яти збоїв сервіс лишиться зупиненим).
   2. Ресурси: `limits.memory` = `${OPENCLOUD_MEM_LIMIT:-2.5G}`, без CPU-ліміту; reservation 512M / 0.5 CPU. Після навантаження з 3.3 підтвердити ліміт `[перевірити]`.
-  3. Монтування: `/srv/opencloud/data` → `/var/lib/opencloud`; `opencloud.yaml` як external Swarm Secret (ім'я з мапінгу) у `/etc/opencloud/opencloud.yaml` (`uid` і `mode` з 4.1); мапінг груп `proxy.yaml` і CSP — Swarm Configs. Шлях до підготовленого мапінгу задає `OPENCLOUD_PROXY_CONFIG_FILE` на manager-ноді.
+  3. Монтування: `/srv/opencloud/data` → `/var/lib/opencloud`; `opencloud.yaml` як external Swarm Secret (ім'я з мапінгу) у `/etc/opencloud/opencloud.yaml` (`uid` і `mode` з 4.1); мапінг груп `proxy.yaml` і CSP — Swarm Configs з іменами за хешем. `scripts/render-proxy-config.py` генерує мапінг із GUID Entra на manager-ноді.
   4. Non-root: UID процесу в офіційному образі узгодити з `init-volumes.sh` (5.2). Власного Dockerfile немає.
   5. Traefik labels додаються в 5.4, healthcheck — у 6.1.
   6. Публічні посилання: `OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD: "false"`; зберегти вимогу пароля для посилань із записом через `OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD: "true"`.
@@ -331,8 +331,8 @@ CI/CD підключається останнім кроком проєкту (�
 
   ```bash
   yamllint docker-stack.yml
-  docker compose --env-file .env.example --env-file /tmp/map.env -f docker-stack.yml config -q
-  docker compose --env-file .env.example --env-file /tmp/map.env -f docker-stack.yml config | grep -E 'replicas|order|constraints|memory'
+  docker compose --env-file .env.example --env-file /tmp/map.env --env-file .local/proxy-config.env -f docker-stack.yml config -q
+  docker compose --env-file .env.example --env-file /tmp/map.env --env-file .local/proxy-config.env -f docker-stack.yml config | grep -E 'replicas|order|constraints|memory'
   ! grep -n '2560M' docker-stack.yml
   ```
 
@@ -342,7 +342,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Залежності:** 5.1
 - **Кроки реалізації:**
   1. `scripts/init-volumes.sh`: `mkdir -p /srv/opencloud/data`, власник UID/GID контейнера, права каталогу; нічого більше не генерує. Змінні (шлях, UID) читаються з `$ORCHESTRATOR_ENV_FILE` лише безпечним парсингом (`grep` / `cut` / `awk`), ніколи `source`.
-  2. Конфіги не рендеряться: `config/proxy.yaml` — звичайний статичний файл у репозиторії, а все, що можна задати змінною середовища, лишається змінною.
+  2. `init-volumes.sh` не рендерить конфіги; мапінг груп генерує `scripts/render-proxy-config.py` перед розгортанням.
 - **Файли / Директорії:** `scripts/init-volumes.sh`
 - **Критерії прийняття (Acceptance Criteria):**
   - [ ] Другий запуск → `exit 0`, без змін
@@ -363,7 +363,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Залежності:** 5.2
 - **Кроки реалізації:**
   1. `scripts/deploy-orchestrator-swarm.sh` приймає `ORCHESTRATOR_ENV_FILE`, `ENVIRONMENT_NAME` (`development` | `production`), `ORCHESTRATOR_MODE=swarm`, `STACK_NAME`; інший режим → відмова.
-  2. Порядок: 1а `preflight-host.sh` → перевірка мітки `storage=primary` (оркестратор працює на manager) → 1б `init-volumes.sh` → `reconcile-sops-secrets.sh ... -apply` (оновлення мапінгу) → перевірка політик → `docker compose --env-file ... config` → `docker stack deploy` → post-deploy check.
+  2. Порядок: 1а `preflight-host.sh` → перевірка мітки `storage=primary` (оркестратор працює на manager) → 1б `init-volumes.sh` → `reconcile-sops-secrets.sh ... -apply` (оновлення мапінгу) → `scripts/render-proxy-config.py --env-file ...`, збереження його виводу як мапінгу імен Configs → перевірка політик → `docker compose --env-file ... config` → `docker stack deploy` → post-deploy check. Помилка генерації зупиняє деплой.
   3. Перевірка політик — кілька `grep -q` у функції оркестратора, без окремого скрипта: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, усі секрети external.
   4. Post-deploy check — функція очікування з таймаутом: `docker inspect --format '{{.State.Health.Status}}'` контейнера = `healthy` і `curl` на головну сторінку `https://<domain>/` повертає 200 (не `.well-known`, див. 6.1). Помилка → ненульовий код, пайплайн падає.
   5. Для `production` вимагати `-approval-context`.

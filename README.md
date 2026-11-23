@@ -57,7 +57,9 @@ Use `env.prod.enc`, `-environment prod`, and `-approval-context <approval-id>` f
 
 `docker-stack.yml` defines one non-root OpenCloud replica with a PosixFS data bind mount and the external secret produced by reconciliation. Its default memory limit is `2.5G` (2.5 GiB); `OPENCLOUD_MEM_LIMIT` overrides it. Confirm the limit under the expected load.
 
-Set the image, domain, Entra identifiers and secret name before rendering. Prepare an actual group-to-role mapping using `config/proxy.groups.example.yaml` as a template and set `OPENCLOUD_PROXY_CONFIG_FILE` to its path on the Swarm manager. The stack uploads that mapping and the Entra CSP as Swarm Configs; neither should contain secrets. Swarm Configs are immutable, so changing either configuration requires a new config name and a service update; config versioning remains part of the deployment workflow.
+Set the image, domain, Entra identifiers and secret name before rendering. `./.local/proxy.yaml` is ignored by Git and is not created by cloning the repository. Generate it on the Swarm manager with `scripts/render-proxy-config.py`; the script validates the two Entra group IDs and emits content-based names for the proxy and CSP Swarm Configs. See [the scripts runbook](docs/scripts_runbook.md) for the preparation commands. The stack uploads these files as Swarm Configs; they must not contain secrets.
+
+Store `ENTRA_ADMIN_GROUP_ID` and `ENTRA_STAFF_GROUP_ID` in each environment's SOPS file; the generator can read them directly with `--env-file`. The existing encrypted environment files are not updated by this change. The deployment orchestrator and CI workflow do not yet exist; task 5.3 must invoke the generator and pass its name-only output to the stack before CI is connected in task 6.6.
 
 The stack does not yet include Traefik routing or a healthcheck. Before deployment, prepare the data directory with the correct UID and xattr support, configure Entra and resolve the identity security gates described in the roadmap. The deployment orchestrator and dev acceptance are later tasks.
 

@@ -10,6 +10,18 @@ Run commands from the repository root. Identify the target environment before ch
 ./scripts/preflight-host.sh /srv/opencloud/data
 ```
 
+## Group-to-role configuration
+
+On the Swarm manager, add `ENTRA_ADMIN_GROUP_ID` and `ENTRA_STAFF_GROUP_ID` to the appropriate SOPS environment file. They must be distinct canonical Entra group UUIDs. `SERVER_ENV` must be exported as `dev` or `prod`. The generated file is ignored by Git and must be regenerated after cloning.
+
+```bash
+mkdir -p .local
+python3 scripts/render-proxy-config.py --env-file env.dev.enc > .local/proxy-config.env.tmp &&
+  mv .local/proxy-config.env.tmp .local/proxy-config.env
+```
+
+The script writes `OPENCLOUD_PROXY_CONFIG_FILE` (default `./.local/proxy.yaml`) and emits only content-based Swarm Config names to the mapping file. For prod, use `env.prod.enc` on the prod host. The script also accepts an owner-only plaintext dotenv via `--env-file`, or exported group IDs when the option is omitted. Pass `.local/proxy-config.env` and the secret mapping to the deployment process. The planned orchestrator must invoke this script; the existing repository does not yet have a CI/CD workflow.
+
 ## OpenCloud Swarm secret (category 1b)
 
 `scripts/reconcile-sops-secrets.sh` prepares a versioned Swarm secret from `OPENCLOUD_YAML_B64`. It requires SOPS, the correct age key, Python 3 with PyYAML and a host `SERVER_ENV` matching `/etc/environment`. Apply additionally requires Docker access on a Swarm manager. The following examples target **dev**; never use its OpenCloud config for another environment.

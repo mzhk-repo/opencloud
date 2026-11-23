@@ -33,6 +33,7 @@ Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, 
 - `scripts/preflight-host.sh`: storage preflight; `docker-compose.yml`: isolated local setup. `docker-stack.yml` defines a Swarm service with a configurable memory limit defaulting to 2.5 GiB; deployment, Traefik and CI are planned.
 - Local Compose defaults to Entra on port 9200; `docker-compose.internal.yml` switches the same instance to its internal IdP. The main instance has not yet been validated with Entra and group synchronization.
 - `scripts/reconcile-sops-secrets.sh`: planned Swarm secret preparation; selects dev/prod from `/etc/environment` and verifies exported `SERVER_ENV`. Encrypted environment files contain placeholders and require configuration.
+- `scripts/render-proxy-config.py` generates ignored role mapping and content-based Swarm Config names from Entra group IDs; the planned orchestrator must invoke it before deployment.
 
 ## Important Documents
 
