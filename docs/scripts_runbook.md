@@ -12,7 +12,7 @@ Run commands from the repository root. Identify the target environment before ch
 
 ## Swarm deployment orchestration (category 1b)
 
-The orchestrator requires a Swarm manager that is also the only node labelled `storage=primary`; remote storage-node preparation is not implemented. Set `SERVER_ENV` from the host, an existing SOPS or owner-only plaintext `ORCHESTRATOR_ENV_FILE`, `ORCHESTRATOR_MODE=swarm`, `ENVIRONMENT_NAME=development` or `production`, and a lowercase `STACK_NAME`. The file must contain the Entra group IDs and other deployment settings. Check without changing storage, secrets or services:
+The orchestrator requires a Swarm manager as the storage node; remote storage-node preparation is not implemented. During deployment it assigns `storage=primary` to the current manager if the label is absent. It stops if another node is already labelled `storage=primary` or the current node has a different `storage` value. `--check` reports a needed assignment without changing labels. Set `SERVER_ENV` from the host, an existing SOPS or owner-only plaintext `ORCHESTRATOR_ENV_FILE`, `ORCHESTRATOR_MODE=swarm`, `ENVIRONMENT_NAME=development` or `production`, and a lowercase `STACK_NAME`. The file must contain the Entra group IDs and other deployment settings. Check without changing storage, secrets or services:
 
 ```bash
 ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
@@ -21,7 +21,7 @@ ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
 
 After review and completion of Traefik and healthcheck configuration, an authorized dev deployment is started with the same environment and `--deploy --apply`. Production additionally requires `--approval-context <approval-id>`; the identifier does not itself grant approval. The shared CI workflow must invoke `scripts/ci-deploy-swarm.sh`, which adapts its environment to these explicit options; CI integration remains a later task.
 
-The orchestrator checks policies and node placement before storage changes, then prepares and checks the data directory, reconciles the secret, deploys, and waits for a healthy service and HTTP 200. It exits nonzero on failure; a deployment failure can leave an updated stack or new secret, so inspect the service before retrying. It never automatically rolls back data or removes old secrets. No direct production operation is authorized by this documentation.
+The orchestrator checks policies and node placement before assigning a missing label, then prepares and checks the data directory, reconciles the secret, deploys, and waits for a healthy service and HTTP 200. It exits nonzero on failure; a failure can leave the node label, an updated stack or a new secret, so inspect the node and service before retrying. The `storage=primary` label can also affect other Swarm services using that placement constraint. It never automatically rolls back data or removes old secrets. No direct production operation is authorized by this documentation.
 
 ## Prepare the storage directory (category 1b)
 

@@ -67,8 +67,20 @@ elif a[:2]==['stack','deploy']:
  with (root/'trace').open('a') as f: f.write('deploy\\n')
  if (root/'fail_deploy').exists(): sys.exit(1)
 elif a[0]=='info': print('active true' if 'ControlAvailable' in a[-1] else 'node123')
-elif a[:2]==['node','ls']: print('remote-node' if (root/'remote_node').exists() else 'node123')
-elif a[:2]==['node','inspect']: print('ready active')
+elif a[:2]==['node','ls']:
+ if '--quiet' not in a or '--no-trunc' in a: sys.exit(1)
+ if (root/'remote_node').exists(): print('remote-node')
+ elif not (root/'unlabelled').exists() or (root/'label_added').exists(): print('node123')
+elif a[:2]==['node','inspect']:
+ if 'Status.State' in a[-1]: print('down active' if (root/'node_down').exists() else 'ready active')
+ elif (root/'other_label').exists(): print('other')
+ elif (root/'race_label').exists() or ((root/'unlabelled').exists() and not (root/'label_added').exists()): print('')
+ else: print('primary')
+elif a[:2]==['node','update']:
+ if a[2:] != ['--label-add', 'storage=primary', 'node123']: sys.exit(1)
+ with (root/'trace').open('a') as f: f.write('label\\n')
+ if (root/'fail_label').exists(): sys.exit(1)
+ (root/'label_added').touch()
 elif a[:2]==['service','inspect']: print('completed')
 elif a[0]=='ps': print('container123')
 elif a[0]=='inspect': print('unhealthy' if (root/'unhealthy').exists() else 'healthy')
@@ -148,7 +160,53 @@ else: sys.exit(1)
         (self.root / 'remote_node').touch()
         result = self.run_script('--deploy', '--apply')
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('remote storage preparation is not implemented', result.stderr)
+        self.assertIn('already assigned to another node', result.stderr)
+        self.assertEqual(self.events(), [])
+
+    def test_unlabelled_check_does_not_change_node(self):
+        (self.root / 'unlabelled').touch()
+        result = self.run_script('--check')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('will assign storage=primary', result.stderr)
+        self.assertEqual(self.events(), [])
+
+    def test_deploy_labels_unlabelled_node_before_preparation(self):
+        (self.root / 'unlabelled').touch()
+        result = self.run_script('--deploy', '--apply')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.events(), ['label', 'init-volumes', 'preflight-host', 'reconcile', 'deploy'])
+        result = self.run_script('--deploy', '--apply')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.events().count('label'), 1)
+
+    def test_existing_different_storage_label_is_preserved(self):
+        (self.root / 'unlabelled').touch()
+        (self.root / 'other_label').touch()
+        result = self.run_script('--deploy', '--apply')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('different storage label', result.stderr)
+        self.assertEqual(self.events(), [])
+
+    def test_node_not_ready_does_not_receive_label(self):
+        (self.root / 'unlabelled').touch()
+        (self.root / 'node_down').touch()
+        result = self.run_script('--deploy', '--apply')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('ready and active', result.stderr)
+        self.assertEqual(self.events(), [])
+
+    def test_label_failure_stops_before_preparation(self):
+        (self.root / 'unlabelled').touch()
+        (self.root / 'fail_label').touch()
+        result = self.run_script('--deploy', '--apply')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.events(), ['label'])
+
+    def test_label_changed_during_validation_stops(self):
+        (self.root / 'race_label').touch()
+        result = self.run_script('--deploy', '--apply')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('changed during validation', result.stderr)
         self.assertEqual(self.events(), [])
 
     def test_unhealthy_service_times_out(self):

@@ -363,7 +363,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Залежності:** 5.2
 - **Кроки реалізації:**
   1. `scripts/deploy-orchestrator-swarm.sh` приймає `ORCHESTRATOR_ENV_FILE`, `ENVIRONMENT_NAME` (`development` | `production`), `ORCHESTRATOR_MODE=swarm`, `STACK_NAME`; інший режим → відмова.
-  2. Порядок: перевірка середовища та генерація Configs і dry-run секрету в tmpfs → рендер і перевірка політик → перевірка manager і storage-ноди → `init-volumes.sh` → `preflight-host.sh` → `reconcile-sops-secrets.sh ... -apply` → `docker stack deploy` → post-deploy check. Будь-яка помилка зупиняє деплой. Поки що дозволено лише одну storage-ноду, яка є поточним manager; підготовка віддаленої storage-ноди не реалізована.
+  2. Порядок: перевірка середовища та генерація Configs і dry-run секрету в tmpfs → рендер і перевірка політик → перевірка manager і storage-ноди → призначення `storage=primary` поточному manager, якщо мітки немає → `init-volumes.sh` → `preflight-host.sh` → `reconcile-sops-secrets.sh ... -apply` → `docker stack deploy` → post-deploy check. Якщо мітка вже на іншій ноді або поточна нода має інше значення `storage`, деплой зупиняється. При помилці після призначення мітка лишається. Підготовка віддаленої storage-ноди не реалізована.
   3. Перевірка структурованої конфігурації: `replicas: 1`, `order: stop-first`, `placement`, відсутність опублікованих портів на хості, external secret, увімкнений healthcheck та Traefik. Поточний стек не має healthcheck і Traefik; деплой блокується до задач 5.4 та 6.1.
   4. Post-deploy check — функція очікування з таймаутом: `docker inspect --format '{{.State.Health.Status}}'` контейнера = `healthy` і `curl` на головну сторінку `https://<domain>/` повертає 200 (не `.well-known`, див. 6.1). Помилка → ненульовий код, пайплайн падає.
   5. Для `production` вимагати `--approval-context`; `scripts/ci-deploy-swarm.sh` адаптує середовище shared workflow до явного `--deploy --apply`.
@@ -407,7 +407,7 @@ CI/CD підключається останнім кроком проєкту (�
 - **Ціль:** AC-1, AC-3 і AC-4 пройдені на dev-домені.
 - **Залежності:** 5.3, 5.4
 - **Кроки реалізації:**
-  1. На dev-ноді: мітка `storage=primary`, `preflight-host.sh`.
+  1. На dev-ноді: перевірити автоматично призначену мітку `storage=primary` і результат `preflight-host.sh`.
   2. Запустити оркестратор вручну для `development`.
   3. Пройти AC-1 (Entra, студент не входить), AC-3 (10 ГБ через Traefik із розривом), AC-4 (rename / overwrite і порівняння `user.oc.id`, як у 3.2), чеклісти 3.1–3.2.
   4. Зафіксувати використання CPU/RAM у `AI_CONTEXT.md`.

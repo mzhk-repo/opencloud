@@ -154,16 +154,29 @@ PY
 docker_clean stack config -c docker-stack.yml > /dev/null || die 'Swarm stack configuration is invalid'
 [[ "$(docker_clean info --format '{{.Swarm.LocalNodeState}} {{.Swarm.ControlAvailable}}')" == 'active true' ]] || die 'an active Swarm manager is required'
 node_id=$(docker_clean info --format '{{.Swarm.NodeID}}')
-node_list=$(docker_clean node ls --no-trunc --filter 'node.label=storage=primary' --format '{{.ID}}') || die 'cannot list storage nodes'
-mapfile -t storage_nodes <<< "$node_list"
-[[ ${#storage_nodes[@]} -eq 1 && "${storage_nodes[0]}" == "$node_id" ]] || die 'exactly one storage=primary node must be the current manager; remote storage preparation is not implemented'
+node_list=$(docker_clean node ls --quiet --filter 'node.label=storage=primary') || die 'cannot list storage nodes'
+[[ -z "$node_list" || "$node_list" == "$node_id" ]] || die 'storage=primary is already assigned to another node or to multiple nodes'
 [[ "$(docker_clean node inspect "$node_id" --format '{{.Status.State}} {{.Spec.Availability}}')" == 'ready active' ]] || die 'storage node must be ready and active'
+node_label=$(docker_clean node inspect "$node_id" --format '{{if index .Spec.Labels "storage"}}{{index .Spec.Labels "storage"}}{{end}}') || die 'cannot inspect storage label'
+[[ -z "$node_label" || "$node_label" == primary ]] || die 'current manager already has a different storage label'
+if [[ -n "$node_list" ]]; then
+  [[ "$node_label" == primary ]] || die 'storage label changed during validation; retry'
+else
+  [[ -z "$node_label" ]] || die 'storage label changed during validation; retry'
+fi
 log 'environment, stack policies and local storage node verified'
 if [[ "$operation" == check ]]; then
+  [[ -n "$node_list" ]] || log 'deployment will assign storage=primary to this manager'
   log 'check passed; no data directory, Swarm Secret or service was changed'
   exit 0
 fi
 
+if [[ -z "$node_list" ]]; then
+  docker_clean node update --label-add storage=primary "$node_id" > /dev/null || die 'cannot assign storage=primary to the current manager'
+  node_list=$(docker_clean node ls --quiet --filter 'node.label=storage=primary') || die 'cannot verify storage nodes after labeling'
+  [[ "$node_list" == "$node_id" ]] || die 'storage label conflict after assignment; review labels before retrying'
+  log 'assigned storage=primary to the current manager'
+fi
 ORCHESTRATOR_ENV_FILE="$stage/env" "$root/scripts/init-volumes.sh"
 "$root/scripts/preflight-host.sh" "$OPENCLOUD_DATA_PATH"
 args=(-env-file "$stage/env" -environment "$environment" -mapping-file "$stage/secret-map" -apply)

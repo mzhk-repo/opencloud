@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-23 — Assign the local storage label on deployment
+
+- **Context:** The owner requested automatic `storage=primary` labelling of the node running deployment.
+- **Change:** The orchestrator assigns a missing label to the ready current manager during apply, rejects conflicting labels and rechecks uniqueness. Check mode reports the planned assignment without changes; corrected Docker node listing to use supported full-ID output.
+- **Verification:** Isolated fake-Docker tests cover assignment, existing and conflicting labels, check mode, an unavailable node and a failed label update. The real manager has no `storage=primary` label; no live labels were changed.
+- **Risks:** A label may remain after a later deployment failure and can affect other services with the same placement constraint. Real deployment, Traefik and healthcheck remain unverified.
+- **Rollback:** Revert the orchestrator, tests and related documentation; inspect label usage before changing any live node label.
+
 ## 2026-11-23 — Adapt the Swarm deployment orchestrator
 
 - **Context:** Task 5.3 requires the copied SMTP2Graph orchestrator to use OpenCloud storage, secrets and group mappings safely.
