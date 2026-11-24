@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-24 — Add Borg backups with Google Drive copies
+
+- **Context:** Task 6.2 needs a consistent encrypted backup and a retryable offsite copy without a local scheduler.
+- **Change:** Added Borg installation on deployment, guarded local and mounted backup directories, encrypted backups of state and matching Swarm configuration, service recovery, local retention, rclone copy and owned remote retention, pending-copy retry, and atomic metrics. Documented settings and operations.
+- **Verification:** Isolated fake-service checks cover installation, permissions failure, service state, copy retry, retention and metrics; an extracted Ubuntu Borg 1.2.8 created an encrypted archive and restored a control file with its `user.oc.id` xattr. See runbook for live acceptance.
+- **Risks:** Dev Swarm, real Google Drive, operator permissions, endpoint downtime and full recovery are not verified. A killed process cannot run cleanup; encrypted repository and independent SOPS key/passphrase are required for recovery.
+- **Rollback:** Revert the repository changes. Preserve existing Borg repositories, encrypted environments and offsite copies; inspect pending work and service state before any operational cleanup.
+
 ## 2026-11-24 — Prepare the OpenCloud 9.1.1 upgrade
 
 - **Context:** The owner requested an upgrade from 7.2.x and a 1 GB default project Space quota, without creating backups.

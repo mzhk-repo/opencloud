@@ -168,3 +168,30 @@ A failed comparison requires investigation before proceeding. Use the appropriat
 ```
 
 Stop at the first error. The first command makes no Swarm changes; the next creates the secret if missing and writes its name to the mapping. The last confirms a repeat run succeeds. These commands do not deploy a service or remove old secrets. Verify the actual service and recovery separately before removing any old secret.
+
+## Borg backup and Google Drive copy (category 2)
+
+Configure the backup settings shown in `config/sops-env.example` in the selected encrypted `env.dev.enc` or `env.prod.enc`; do not print decrypted values. `BORG_PASSPHRASE` must be a strong non-placeholder value and must be recoverable independently of the Borg repository. Preserve the corresponding SOPS age key and encrypted environment separately. The backup includes the matching `opencloud.yaml`, decrypted environment, service specification and Swarm Config records inside the encrypted Borg archive. The SOPS configuration must hash to the `opencloud.yaml` secret attached to the service; the script stops on a mismatch.
+
+`BACKUP_LOCAL_DIR` holds the encrypted Borg repository, its lock and a pending-copy marker. It must be outside both the OpenCloud data tree and the rclone mount. `BACKUP_RCLONE_REMOTE` is an rclone remote name without `:`, `BACKUP_RCLONE_FOLDER` is a relative folder beneath that remote, and `BACKUP_RCLONE_MOUNT` must be an existing `fuse.rclone` mount of the remote root (`findmnt` source `<remote>:`). The same user running backup and volume preparation must have access to the mount, the remote's rclone configuration, the SOPS key, Docker and the metrics directory. In particular, root must be able to access a FUSE mount created by another user. Provision `NODE_EXPORTER_TEXTFILE_DIR` separately. Restrict access to the local backup directory and to the Google Drive destination.
+
+The deploy orchestrator runs `install-borg.sh` only during `--deploy --apply`. It keeps an existing Borg 1.2 or later in the 1.x series; otherwise on Ubuntu it uses `sudo -n apt-get` to install the distribution package. Noninteractive apt permission is required when installation is needed; failure stops deployment. Borg 2 and repositories incompatible with the installed Borg stop with an error. `--check` does not install packages or create directories. Deploy preparation creates the configured backup directories only after checking the rclone mount and remote. Do not configure a timer until the owner chooses an external scheduler.
+
+Run the backup on the manager that is the sole `storage=primary` node, with no concurrent deployment, restore, or other operation on the Borg repository. This example targets dev; the operator must run it with sufficient privileges to read all data and its xattrs and must make the age key and rclone configuration available to that account:
+
+```bash
+cd /opt/opencloud
+SERVER_ENV=dev STACK_NAME=opencloud ./scripts/backup.sh dev
+```
+
+The script attempts expired trash and upload cleanup, stops the service only when its desired replica count is one, creates an encrypted archive, restores that replica count, prunes local archives (7 daily, 4 weekly, 6 monthly), compacts the repository, and runs `rclone copy` to a new dated Drive directory. A service already scaled to zero remains stopped. The reported scaling interval is not an external availability measurement. The first dev run still needs an independently measured downtime and a full restore drill. Signals handled by the script attempt a restart; power loss or SIGKILL cannot run cleanup. If restart fails, inspect the service and recover it manually before continuing.
+
+A failed copy leaves the local archive and `.opencloud-pending` marker. Fix the mount, remote or credentials, then retry without stopping the service or creating an archive:
+
+```bash
+SERVER_ENV=dev STACK_NAME=opencloud ./scripts/backup.sh dev --retry-copy
+```
+
+Do not edit or delete the pending marker or modify the repository before retrying. A failure during prune or compact also leaves the marker; investigate local retention and repository health before retrying, since retry only transfers the existing repository. After successful transfer the script removes older matching directories carrying its ownership marker, keeping the current copy and ignoring unmarked, unrelated and newer directories. Failed or interrupted transfers can leave unmarked partial directories that require manual review. Full dated copies can temporarily require space for multiple repositories. A successful `rclone copy` is not a restore test; `borg check` and the full recovery procedure are separate operator tasks.
+
+The `opencloud_backup.prom` file is atomically replaced with `opencloud_backup_last_run_timestamp_seconds`, `opencloud_backup_last_success_timestamp_seconds`, and `opencloud_backup_last_status`, labelled with `env` and `service="opencloud"`. A failed run keeps the previous success timestamp. If the configuration cannot be decrypted or parsed, the metrics directory is not yet known and no metric can be written; monitor the scheduler and script exit code too. A metrics write failure is reported and returns a nonzero status, even if the backup copy completed.

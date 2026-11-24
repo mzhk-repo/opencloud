@@ -195,6 +195,8 @@ if [[ "$operation" == check ]]; then
   exit 0
 fi
 
+"$root/scripts/install-borg.sh"
+
 if [[ "$network_exists" == false ]]; then
   docker_clean network create --driver overlay "$OPENCLOUD_PROXY_NETWORK" > /dev/null || die 'cannot create proxy overlay network; inspect existing networks before retrying'
   validate_network

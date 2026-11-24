@@ -16,7 +16,7 @@ Browser → Cloudflare Tunnel → Traefik → one OpenCloud replica in Docker Sw
 
 The OpenCloud Traefik router uses the shared `web` entrypoint and `OPENCLOUD_PROXY_NETWORK`, forwards HTTP to port 9200, and sets the external HTTPS forwarding headers. Do not attach a buffering middleware: TUS request bodies must stream. On the central Traefik, confirm `web` uses a moderate `readTimeout` (5m is the proposed value) and assess its effect on every service using that entrypoint before changing it; this timeout is global to the entrypoint. The timeout has not been deployed or validated with TUS chunks. An encrypted overlay or backend TLS would reduce exposure of inter-node traffic.
 
-The SPEC includes a separate host config directory; the ROADMAP proposes a Swarm Secret instead, subject to the state-layout investigation. Back up all required state and configuration; preserve xattrs and verify recovery of users, grants and public links.
+The SPEC includes a separate host config directory; the ROADMAP proposes a Swarm Secret instead, subject to the state-layout investigation. An encrypted local Borg repository is copied to a dated Google Drive directory through rclone; the configured mount and remote must match. Back up all required state and configuration; preserve xattrs and verify recovery of users, grants and public links.
 
 ## Tech Stack
 
@@ -64,4 +64,4 @@ Confirm Entra Education A1 role assignment and staff filtering, fallback account
 
 ## Last Updated
 
-2026-11-23
+2026-11-24

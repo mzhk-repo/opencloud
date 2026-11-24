@@ -50,7 +50,7 @@ else
   echo 'Dry run successful; secret name: opencloud_opencloud_yaml_v3333333333333333'
 fi
 ''')
-        for step in ('init-volumes', 'preflight-host'):
+        for step in ('install-borg', 'init-volumes', 'preflight-host'):
             self.executable('scripts/' + step + '.sh', f'''#!/bin/bash
 root=$(cd "$(dirname "$0")/.." && pwd)
 echo {step} >> "$root/trace"
@@ -117,7 +117,7 @@ else: sys.exit(1)
         result = self.run_script('--deploy', '--apply')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('proxy overlay is not encrypted', result.stderr)
-        self.assertEqual(self.events(), ['init-volumes', 'preflight-host', 'reconcile', 'deploy'])
+        self.assertEqual(self.events(), ['install-borg', 'init-volumes', 'preflight-host', 'reconcile', 'deploy'])
 
     def test_check_changes_no_state(self):
         result = self.run_script('--check')
@@ -129,7 +129,7 @@ else: sys.exit(1)
         env.pop('STACK_NAME')
         result = subprocess.run([str(self.root / 'scripts/ci-deploy-swarm.sh')], env=env, text=True, capture_output=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.events(), ['init-volumes', 'preflight-host', 'reconcile', 'deploy'])
+        self.assertEqual(self.events(), ['install-borg', 'init-volumes', 'preflight-host', 'reconcile', 'deploy'])
 
     def test_missing_health_and_bad_policy_stop_before_mutation(self):
         del self.model['services']['opencloud']['healthcheck']
@@ -146,12 +146,12 @@ else: sys.exit(1)
     def test_preflight_failure_stops_before_reconcile_and_deploy(self):
         (self.root / 'fail_preflight-host').touch()
         self.assertNotEqual(self.run_script('--deploy', '--apply').returncode, 0)
-        self.assertEqual(self.events(), ['init-volumes', 'preflight-host'])
+        self.assertEqual(self.events(), ['install-borg', 'init-volumes', 'preflight-host'])
 
     def test_reconciliation_failure_stops_before_deploy(self):
         (self.root / 'fail_reconcile').touch()
         self.assertNotEqual(self.run_script('--deploy', '--apply').returncode, 0)
-        self.assertEqual(self.events(), ['init-volumes', 'preflight-host', 'reconcile'])
+        self.assertEqual(self.events(), ['install-borg', 'init-volumes', 'preflight-host', 'reconcile'])
 
     def test_dotenv_value_is_never_executed(self):
         marker = self.root / 'executed'
@@ -200,7 +200,7 @@ else: sys.exit(1)
         (self.root / 'missing_network').touch()
         (self.root / 'fail_network_create').touch()
         self.assertNotEqual(self.run_script('--deploy', '--apply').returncode, 0)
-        self.assertEqual(self.events(), ['network'])
+        self.assertEqual(self.events(), ['install-borg', 'network'])
 
     def test_network_list_failure_stops_before_mutation(self):
         (self.root / 'fail_network_ls').touch()
@@ -218,7 +218,7 @@ else: sys.exit(1)
         (self.root / 'unlabelled').touch()
         result = self.run_script('--deploy', '--apply')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.events(), ['label', 'init-volumes', 'preflight-host', 'reconcile', 'deploy'])
+        self.assertEqual(self.events(), ['install-borg', 'label', 'init-volumes', 'preflight-host', 'reconcile', 'deploy'])
         result = self.run_script('--deploy', '--apply')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.events().count('label'), 1)
@@ -244,7 +244,7 @@ else: sys.exit(1)
         (self.root / 'fail_label').touch()
         result = self.run_script('--deploy', '--apply')
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.events(), ['label'])
+        self.assertEqual(self.events(), ['install-borg', 'label'])
 
     def test_label_changed_during_validation_stops(self):
         (self.root / 'race_label').touch()
@@ -258,7 +258,7 @@ else: sys.exit(1)
         result = self.run_script('--deploy', '--apply')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('timed out', result.stderr)
-        self.assertEqual(self.events(), ['init-volumes', 'preflight-host', 'reconcile', 'deploy'])
+        self.assertEqual(self.events(), ['install-borg', 'init-volumes', 'preflight-host', 'reconcile', 'deploy'])
 
 
 if __name__ == '__main__':
