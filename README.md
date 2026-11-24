@@ -30,7 +30,7 @@ For a new local instance, run from the repository root. The guard stops if the l
   docker run --rm -it --user "$(id -u):$(id -g)" \
     --mount "type=bind,src=$PWD/.local/opencloud/config,dst=/etc/opencloud" \
     --mount "type=bind,src=$PWD/.local/opencloud/data,dst=/var/lib/opencloud" \
-    opencloudeu/opencloud:7.2.5 init
+    opencloudeu/opencloud:9.1.1 init
 )
 ```
 
@@ -39,6 +39,8 @@ If initialization fails or leaves partial state, stop and investigate; do not re
 After initialization, prepare the Entra settings and group-to-role mapping as described below before starting the main service. Use the internal login override for local administration.
 
 Prepare the target data directory with `scripts/init-volumes.sh` on the storage node and then check it with `scripts/preflight-host.sh`; see the [scripts runbook](docs/scripts_runbook.md). Preflight needs `findmnt`, `df`, `awk`, `mktemp` and Python 3. It requires at least 10 GiB free for the planned test file; provision additional space for real data and overhead. The stack defaults to 2.5 GiB; validate the limit under the expected workload.
+
+For an existing 7.2.x installation, follow the [9.1.1 Swarm upgrade procedure](docs/scripts_runbook.md#upgrade-dev-from-72x-to-911) before starting the new image.
 
 ## SOPS and Swarm secret preparation
 
@@ -67,7 +69,7 @@ The stack uses the built-in `opencloud proxy health` command to check proxy HTTP
 
 ## Local Entra and internal login
 
-The main Compose configuration uses Entra with JIT provisioning and group-to-role mapping at `https://localhost:9200`. OpenCloud 7.2.5 does not enforce the access-token audience and UPN is mutable; keep this instance on loopback until those risks are resolved. Entra must supply `upn`, `name`, `email` and group claims. Configure the SPA redirect URIs for port 9200 and the `access_as_user` scope.
+The main Compose configuration uses Entra with JIT provisioning and group-to-role mapping at `https://localhost:9200`. The 7.2.5 PoC did not enforce the access-token audience and UPN is mutable; these security properties require revalidation on 9.1.1; keep this instance on loopback until those risks are resolved. Entra must supply `upn`, `name`, `email` and group claims. Configure the SPA redirect URIs for port 9200 and the `access_as_user` scope.
 
 Put `ENTRA_TENANT_ID` and `ENTRA_CLIENT_ID` in the ignored `.local/entra-poc.env` using `.env.example` as a template. Place the group mapping in `.local/opencloud/config/proxy.yaml`, using `config/proxy.groups.example.yaml` as a template; the existing isolated PoC mapping can be copied there. Do not commit the local mapping or environment file.
 

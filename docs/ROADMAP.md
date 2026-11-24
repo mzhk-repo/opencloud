@@ -6,7 +6,7 @@
 
 План враховує правки з рев'ю SPEC. Кожну можна відхилити; зачеплені задачі вказані в дужках.
 
-- **Образ і версія:** Production-гілка, образ `opencloudeu/opencloud`, тег 7.2.5 (наявність підтверджена власником проєкту на Docker Hub); документація гілки 7.2, rolling-образ не використовується (1.1).
+- **Образ і версія:** Production-гілка, образ `opencloudeu/opencloud`, цільовий тег 9.1.1; оновлення dev із 7.2.5 очікує виконання за `docs/scripts_runbook.md`, rolling-образ не використовується (1.1).
 - **PosixFS у non-collaborative режимі:** прямі зміни FS і restore виконуються лише при зупиненому сервісі (1.3, 6.2, 6.3).
 - **Розкладка на хості:** `/srv/opencloud/data` → `/var/lib/opencloud`; конфіг `opencloud.yaml` — один версіонований Swarm Secret у `/etc/opencloud/opencloud.yaml` (1.3, 4.1).
 - **Entra ID, MS 365 Education A1:** ізольований PoC перевірив мапінг GUID Security groups із клейму `groups` на ролі admin/user; користувач без відповідної групи не ввійшов, але його профіль міг створитися до відмови. Остаточне масове призначення співробітників і безпекові умови залишаються відкритими (2.2).
@@ -40,7 +40,7 @@
 - **Кроки реалізації:**
   1. Створити `scripts/`, `config/`, `docs/`, `.github/workflows/` (workflow додається в 6.6).
   2. Додати `.gitignore` (plaintext env, `.local/`), `.editorconfig`, `.yamllint.yml`, `.shellcheckrc`.
-  3. Зафіксувати образ і версію: репозиторій `opencloudeu/opencloud` (Production), тег 7.2.5 як `OPENCLOUD_IMAGE` і `OPENCLOUD_IMAGE_TAG` у `.env.example`. Rolling-образ `opencloudeu/opencloud-rolling` не використовувати; усі змінні звіряти з документацією гілки 7.2, а не з `/docs/next/`.
+  3. Зафіксувати образ і версію: репозиторій `opencloudeu/opencloud` (Production), початковий тег 7.2.5; цільове значення `OPENCLOUD_IMAGE_TAG` у `.env.example` — 9.1.1. Rolling-образ `opencloudeu/opencloud-rolling` не використовувати; змінні звіряти з документацією відповідної версії.
   4. Написати `README.md` (призначення, структура, локальний запуск) і `docs/AI_CONTEXT.md` (до одного екрана): архітектура (1 контейнер, без БД), розкладка хоста `/srv/opencloud/data`, non-collaborative PosixFS, категорії скриптів 1а / 1б / 2, правило «секрети лише через SOPS», команди перевірки.
 - **Файли / Директорії:** `.gitignore`, `.editorconfig`, `.yamllint.yml`, `.shellcheckrc`, `.env.example`, `README.md`, `docs/AI_CONTEXT.md`
 - **Критерії прийняття (Acceptance Criteria):**

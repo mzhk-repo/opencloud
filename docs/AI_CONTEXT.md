@@ -20,7 +20,7 @@ The SPEC includes a separate host config directory; the ROADMAP proposes a Swarm
 
 ## Tech Stack
 
-Official `opencloudeu/opencloud:7.2.5` production image, Docker Swarm, Traefik, Microsoft Entra ID/OIDC, SOPS/age, Swarm Secrets and BorgBackup. The image tag was confirmed by the project owner.
+Target official `opencloudeu/opencloud:9.1.1` production image (dev upgrade pending), Docker Swarm, Traefik, Microsoft Entra ID/OIDC, SOPS/age, Swarm Secrets and BorgBackup. The previous dev image was 7.2.5; confirm the running image after upgrade.
 
 ## Security Constraints
 
@@ -50,13 +50,15 @@ Use [SPEC.md](SPEC.md), [ROADMAP.md](ROADMAP.md) and any applicable ADRs as auth
 
 ## Known Assumptions
 
-Local Entra PoC: group-role mapping and denial were verified; denied users can still be provisioned. JIT synchronizes group memberships and can remove manually assigned memberships; an absent claim can result in an empty membership set. Keep the official image without a custom patch; independent sync control is requested in [issue #4058](https://github.com/opencloud-eu/opencloud/issues/4058). Audience is not enforced and UPN is mutable; keep the PoC loopback-only.
+Local Entra PoC on 7.2.5: group-role mapping and denial were verified; denied users can still be provisioned. JIT synchronizes group memberships and can remove manually assigned memberships; an absent claim can result in an empty membership set. Keep the official image without a custom patch; independent sync control is requested in [issue #4058](https://github.com/opencloud-eu/opencloud/issues/4058). Audience is not enforced and UPN is mutable; keep the PoC loopback-only.
 
 ## State layout
 
 Local inspection: `.local/opencloud/data` maps to `/var/lib/opencloud`; PosixFS uses `storage/users`, identity data includes `idm/idm.boltdb`, NATS state uses `nats/jetstream`, and Bleve data appears under `search/bleve`. `user.oc.id` was readable on the uploaded PDF. Compose mounts `opencloud.yaml` read-only over a writable Docker volume at `/etc/opencloud`; metadata did not change after typical UI actions. On an isolated data copy with a fresh config volume, the user confirmed login and file access; no extra config entries remained. Transient writes, SOPS/Swarm secret recovery and index rebuild remain unverified.
 
 ## Open Questions
+
+For 9.1.1, migrate the Swarm Secret configuration before deployment, rebuild the Bleve index and revalidate health, access, group behavior and identity security. The default quota for new project Spaces is 1,000,000,000 bytes.
 
 Confirm Entra Education A1 role assignment and staff filtering, fallback account provisioning, token validation, stable user identity, actual state layout and recovery, live health behavior, and maintenance commands. See roadmap tasks 1.3, 2.1–2.2 and 6.1–6.4.
 

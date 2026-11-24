@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-24 — Prepare the OpenCloud 9.1.1 upgrade
+
+- **Context:** The owner requested an upgrade from 7.2.x and a 1 GB default project Space quota, without creating backups.
+- **Change:** Set the target image tag in examples and a 1,000,000,000-byte default quota in Swarm and local Compose. Documented the dev migration of the SOPS-backed Swarm Secret, deployment, Bleve reindex and acceptance steps.
+- **Verification:** Compose routing and quota checks, 20 isolated orchestrator checks, Swarm stack rendering, YAML lint and `git diff --check` passed. The 9.1.1 source retains the proxy health command; the image is not present locally.
+- **Risks:** Config migration and 9.1.1 startup have not been rehearsed or deployed; Entra, group behavior, quota and search require dev acceptance. Without a backup, returning to 7.2.5 after persistent-state changes is not a verified recovery procedure. Existing Spaces are not retroactively resized.
+- **Rollback:** Revert these repository changes; retain the existing encrypted environment and data. Image rollback alone does not restore migrated state.
+
 ## 2026-11-24 — Record dev storage preflight
 
 - **Context:** Task 5.5 checks the storage node label and the deployed data path.

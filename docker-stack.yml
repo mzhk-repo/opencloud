@@ -7,6 +7,7 @@ services:
     user: "${OPENCLOUD_UID:-1000}:${OPENCLOUD_GID:-1000}"
     environment:
       OC_URL: https://${OPENCLOUD_DOMAIN:?Set OPENCLOUD_DOMAIN}
+      OC_SPACES_DEFAULT_QUOTA: "1000000000"
       OC_EXCLUDE_RUN_SERVICES: idp
       OC_OIDC_ISSUER: >-
         https://login.microsoftonline.com/${ENTRA_TENANT_ID:?Set

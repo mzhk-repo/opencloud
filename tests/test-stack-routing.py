@@ -13,7 +13,7 @@ class StackRoutingTests(unittest.TestCase):
     def test_routing_and_backend_agree(self):
         env = os.environ.copy()
         env.update(
-            OPENCLOUD_IMAGE='opencloudeu/opencloud', OPENCLOUD_IMAGE_TAG='7.2.5',
+            OPENCLOUD_IMAGE='opencloudeu/opencloud', OPENCLOUD_IMAGE_TAG='9.1.1',
             OPENCLOUD_DOMAIN='opencloud.example.test',
             ENTRA_TENANT_ID='11111111-1111-4111-8111-111111111111',
             ENTRA_CLIENT_ID='22222222-2222-4222-8222-222222222222',
@@ -31,6 +31,7 @@ class StackRoutingTests(unittest.TestCase):
         self.assertEqual(service['healthcheck']['test'], ['CMD', 'opencloud', 'proxy', 'health'])
         labels = service['deploy']['labels']
         self.assertEqual(service['environment']['PROXY_TLS'], 'false')
+        self.assertEqual(service['environment']['OC_SPACES_DEFAULT_QUOTA'], '1000000000')
         self.assertEqual(service['environment']['OC_URL'], 'https://opencloud.example.test')
         self.assertEqual(labels['traefik.swarm.network'], 'example-proxy-net')
         self.assertEqual(data['networks']['proxy']['name'], 'example-proxy-net')

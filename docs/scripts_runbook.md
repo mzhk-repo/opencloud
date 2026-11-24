@@ -23,6 +23,86 @@ After review, an authorized dev deployment is started with the same environment 
 
 The orchestrator checks policies and node placement before assigning a missing label, then prepares and checks the data directory, reconciles the secret, deploys, and waits for a healthy service and HTTP 200. It exits nonzero on failure; a failure can leave the node label, an updated stack or a new secret, so inspect the node and service before retrying. The `storage=primary` label can also affect other Swarm services using that placement constraint. It never automatically rolls back data or removes old secrets. No direct production operation is authorized by this documentation.
 
+## Upgrade dev from 7.2.x to 9.1.1
+
+Follow the [9.1.x upgrade guide](upgrade-9.1.x.md). These commands are for the `opencloud` dev stack on its manager and storage node. The requested procedure does not create a backup. After 9.1.1 changes persistent state, switching the image back to 7.2.5 alone is not a verified recovery procedure. Stop on any error; keep the service stopped until the failure is understood. Do not run a second deployment or migration concurrently.
+
+Check the current image and confirm that the dry-run secret name matches the secret attached to the deployed service. A mismatch means the SOPS configuration is not proven to match the running service; stop and investigate without printing configuration values.
+
+```bash
+cd /opt/opencloud
+export SERVER_ENV=dev
+docker service inspect opencloud_opencloud --format 'Image: {{.Spec.TaskTemplate.ContainerSpec.Image}}{{range .Spec.TaskTemplate.ContainerSpec.Secrets}}{{if eq .File.Name "/etc/opencloud/opencloud.yaml"}}{{printf "\nConfig secret: %s" .SecretName}}{{end}}{{end}}'
+./scripts/reconcile-sops-secrets.sh -env-file env.dev.enc -environment dev -mapping-file /tmp/opencloud-upgrade-map.env
+docker pull opencloudeu/opencloud:9.1.1
+```
+
+Confirm the image is 7.2.x and compare the secret names. Confirm the 9.1.1 image pull succeeded before stopping the service. Then stop it and confirm no container for this service remains on the storage node:
+
+```bash
+docker service scale --detach=false opencloud_opencloud=0
+docker ps --filter label=com.docker.swarm.service.name=opencloud_opencloud --format '{{.ID}}'
+```
+
+Continue only if the last command prints no container ID. Prepare a temporary owner-only copy in tmpfs, using the same Linux UID/GID as the service. Keep the shell session open for the following commands; do not expose the contents of the YAML, diff, or patch in logs or shared terminals.
+
+```bash
+set -o pipefail
+umask 077
+task_stage=$(mktemp -d /dev/shm/opencloud-upgrade.XXXXXXXX)
+sops --decrypt --input-type dotenv --output-type binary \
+  --extract '["OPENCLOUD_YAML_B64"]' env.dev.enc \
+  | base64 --decode > "$task_stage/opencloud.yaml"
+```
+
+Stop if decryption or decoding fails. The following runs `init --diff` only on the temporary config copy, with no live data mounted. It does not initialize the existing data directory:
+
+```bash
+docker run --rm --pull never --network none --user "$(id -u):$(id -g)" \
+  --entrypoint /bin/sh --mount "type=bind,src=$task_stage,dst=/etc/opencloud" \
+  opencloudeu/opencloud:9.1.1 \
+  -c 'cd /etc/opencloud && opencloud init --diff' > "$task_stage/diff-output" 2>&1
+```
+
+Review `diff-output` and, if present, `opencloud.config.patch` privately. Check custom settings, the guest-link service account and thumbnail changes against the guide. If there is a patch, verify and apply it to the temporary file:
+
+```bash
+patch --dry-run --batch --forward "$task_stage/opencloud.yaml" < "$task_stage/opencloud.config.patch" &&
+patch --batch --forward "$task_stage/opencloud.yaml" < "$task_stage/opencloud.config.patch"
+```
+
+If the diff explicitly says there are no changes and no patch was produced, skip these two commands. Stop for any other result or failed review. Close any SOPS editor first. Update the encrypted dev file with the reviewed config, then the image tag; the two writes are separate, so stop and resolve a failure before deploying.
+
+```bash
+python3 -c 'import base64,json,sys; json.dump(base64.b64encode(open(sys.argv[1],"rb").read()).decode(),sys.stdout)' \
+  "$task_stage/opencloud.yaml" | sops set --input-type dotenv --output-type dotenv --value-stdin \
+  env.dev.enc '["OPENCLOUD_YAML_B64"]' &&
+printf '"9.1.1"' | sops set --input-type dotenv --output-type dotenv --value-stdin \
+  env.dev.enc '["OPENCLOUD_IMAGE_TAG"]' &&
+sops --decrypt --input-type dotenv --output-type binary \
+  --extract '["OPENCLOUD_YAML_B64"]' env.dev.enc | base64 --decode | cmp -s "$task_stage/opencloud.yaml" - &&
+sops --decrypt --input-type dotenv --output-type binary \
+  --extract '["OPENCLOUD_IMAGE_TAG"]' env.dev.enc
+```
+
+Continue only when the comparison succeeds and the tag is `9.1.1`. Remove the temporary directory after completing the verification, including if the process is abandoned: `rm -rf -- "${task_stage:?}"`. Deploy using the orchestrator and stop if it fails:
+
+```bash
+ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
+  ORCHESTRATOR_ENV_FILE=env.dev.enc ./scripts/deploy-orchestrator-swarm.sh --check
+ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
+  ORCHESTRATOR_ENV_FILE=env.dev.enc ./scripts/deploy-orchestrator-swarm.sh --deploy --apply
+```
+
+Once the service is healthy, rebuild the default Bleve index during a low-activity window. Select the sole running service container on its storage node and verify there is exactly one before running the command:
+
+```bash
+docker ps --filter label=com.docker.swarm.service.name=opencloud_opencloud --format '{{.ID}}'
+docker exec <container-id> opencloud search index --all-spaces --force-rescan
+```
+
+Replace `<container-id>` with that single ID. Wait for completion before retrying. Verify old files appear in search, sign-in, upload/download, Spaces, existing shares and public links, previews and a new project Space's 1,000,000,000-byte default quota. Do not delete `/var/lib/opencloud/search/bleve` until search validation succeeds and the operator separately decides to remove it. The default quota does not retroactively change existing Spaces. Record observed results and CPU/RAM use; a healthy proxy alone does not prove these checks.
+
 ## Prepare the storage directory (category 1b)
 
 Run `scripts/init-volumes.sh` on the intended storage node, before preflight. Its exported `SERVER_ENV` must match the single `dev` or `prod` value in `/etc/environment`. `ORCHESTRATOR_ENV_FILE` must point to an owner-only plaintext dotenv prepared securely by the deployment process; it may contain `OPENCLOUD_DATA_PATH`, `OPENCLOUD_UID`, and `OPENCLOUD_GID`. Defaults are `/srv/opencloud/data`, `1000`, and `1000`. The Swarm stack uses the same variables. The script does not decrypt SOPS files or execute dotenv contents.
