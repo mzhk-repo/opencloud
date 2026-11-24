@@ -249,6 +249,8 @@ A failed comparison requires investigation before proceeding. Use the appropriat
 
 Stop at the first error. The first command makes no Swarm changes; the next creates the secret if missing and writes its name to the mapping. The last confirms a repeat run succeeds. These commands do not deploy a service or remove old secrets. Verify the actual service and recovery separately before removing any old secret.
 
+For recovery, follow the [Borg restore runbook](RUNBOOK.md#restore-a-borg-backup).
+
 ## Borg backup and Google Drive copy (category 2)
 
 Configure the backup settings shown in `config/sops-env.example` in the selected encrypted `env.dev.enc` or `env.prod.enc`; do not print decrypted values. `BORG_PASSPHRASE` must be a strong non-placeholder value and must be recoverable independently of the Borg repository. Preserve the corresponding SOPS age key and encrypted environment separately. The backup includes the matching `opencloud.yaml`, decrypted environment, service specification and Swarm Config records inside the encrypted Borg archive. The SOPS configuration must hash to the `opencloud.yaml` secret attached to the service; the script stops on a mismatch.

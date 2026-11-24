@@ -1,5 +1,37 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-24 — Verify a single-file Borg recovery
+
+- **Context:** Task 6.3 requires extracting an individual archived file and uploading it through OpenCloud.
+- **Change:** Extracted a PNG from the dev Borg archive into `.archive` for the owner to upload; recorded the result without retaining a personal UI link in documentation.
+- **Verification:** Borg extraction succeeded and the output was identified as a PNG of the expected size; the owner reports successful upload through the UI.
+- **Risks:** A deliberately failed extract with the dev service stopped remains untested. The earlier data tree remains at `data.old` for review of potentially newer changes.
+- **Rollback:** Revert the roadmap update and this entry; remove the extracted file only after the owner no longer needs it.
+
+## 2026-11-24 — Record dev recovery UI acceptance
+
+- **Context:** The owner checked OpenCloud after the dev Borg restore.
+- **Change:** Recorded the owner's report that all UI components work and that file recovery from trash or version history was tested.
+- **Verification:** Owner-reported UI results; no additional browser session was performed by the agent.
+- **Risks:** Extracting an individual file from Borg and uploading it through the UI, as well as the failed-extract scenario, remain untested. `data.old` may contain newer changes and must be retained pending review.
+- **Rollback:** Revert the roadmap update and this entry; no live state is changed by this documentation.
+
+## 2026-11-24 — Rehearse the dev Borg restore
+
+- **Context:** The owner requested execution of the recovery runbook on dev.
+- **Change:** Restored the selected archive and retained the previous data tree at `/srv/opencloud/data.old`; recorded partial acceptance and route-check timing in the roadmap and runbook.
+- **Verification:** All 760 archived entries were extracted; 266 regular files, ownership, root directory mode and a matching `user.oc.id` were checked. The service is `1/1` and healthy; after a retry, external HTTPS returned `200`.
+- **Risks:** The first immediate HTTPS check returned a non-200 code, which was not retained; the cause remains a hypothesis. The prior tree has 300 regular files and may contain changes newer than the archive. Owner validation of sign-in, data, access, public links and search, failure injection and UI single-file recovery remain pending. Operator `lsof` reported unrelated FUSE portal warnings and potentially incomplete output.
+- **Rollback:** Stop the service and preserve both trees; follow the runbook to restore `data.old` with its corresponding configuration. Do not delete either tree before owner acceptance.
+
+## 2026-11-24 — Document Borg recovery procedure
+
+- **Context:** Task 6.3 needs a recovery procedure that preserves OpenCloud data and its matching configuration.
+- **Change:** Added a manual recovery runbook with configuration checks, stopped-service extraction, xattr and ownership checks, guarded data replacement, rollback and UI-based single-file recovery. Updated the roadmap and linked the runbook.
+- **Verification:** An isolated Borg repository restored a synthetic file, its `user.oc.id` xattr and data-directory mode; the dev archive's data root and configuration metadata paths were identified without printing user file names.
+- **Risks:** Full dev recovery, failure handling with the live service, single-file UI recovery and offsite recovery have not been rehearsed. Image and configuration compatibility require operator review.
+- **Rollback:** Revert the runbook, roadmap and changelog changes; no live state is changed by this documentation.
+
 ## 2026-11-24 — Prepare a temporary env for manual commands
 
 - **Context:** Manual script examples need a usable decrypted environment file for the same shell session.
