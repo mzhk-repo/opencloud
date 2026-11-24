@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-24 — Record dev storage preflight
+
+- **Context:** Task 5.5 checks the storage node label and the deployed data path.
+- **Change:** Recorded the operator-provided dev results in the roadmap.
+- **Verification:** The provided command output shows `storage=primary` on `pinokew`, one matching node, and a successful preflight for `/srv/opencloud/data` on ext4 with 382207276 KiB available. The operator also reports a successful container startup, login and Phase 5 scenarios.
+- **Risks:** Individual Phase 5 acceptance evidence, resource measurements, rollback and repeat deployment are not documented in the provided output. The 2.5G memory limit still needs workload validation.
+- **Rollback:** Revert this entry and the corresponding roadmap evidence.
+
 ## 2026-11-23 — Add the OpenCloud proxy healthcheck
 
 - **Context:** Task 6.1 requires a container healthcheck for Swarm and the deployment orchestrator.
