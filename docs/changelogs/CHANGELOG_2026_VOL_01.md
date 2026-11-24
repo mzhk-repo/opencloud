@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-24 — Prepare a clean dev disaster recovery drill
+
+- **Context:** The owner requested dedicated restore and restore-smoke scripts, metrics, a Ukrainian operator runbook, and replacement of the dev container with a clean instance before restoring the latest backup.
+- **Change:** Added guarded extraction into a new directory, archived configuration in tmpfs, a full-extraction smoke check and atomic Node Exporter metrics; documented the operator-controlled switch and recovery. Replaced the dev data directory with a clean one while retaining both previous data trees and using the existing dev configuration.
+- **Verification:** Synthetic encrypted Borg repositories covered extraction, protected paths, an alternate repository and success/failure metric preservation. A real dev archive passed isolated extraction, state-layout and xattr checks and wrote status `1`; an internal-network clean-state preflight passed. The clean dev service reached `healthy` and external HTTPS `200`.
+- **Risks:** The smoke metric does not start OpenCloud or prove Entra, grants, links or clean-node recovery. The owner still needs to restore the archive and perform browser acceptance. Current dev data are clean; pre-drill data and the older `data.old` remain preserved and may contain newer changes. Temporary configuration must be removed by the operator when no longer needed.
+- **Rollback:** Stop the dev service and preserve its clean data, then restore the matching previously saved data and configuration as described in the runbook; revert the repository changes separately.
+
 ## 2026-11-24 — Verify a single-file Borg recovery
 
 - **Context:** Task 6.3 requires extracting an individual archived file and uploading it through OpenCloud.

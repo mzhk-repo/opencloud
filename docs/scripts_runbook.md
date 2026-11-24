@@ -77,6 +77,20 @@ Continue only if the command succeeds and `manual_env` remains set. The file has
 
    `backup.sh` reads `env.dev.enc` directly and decrypts it in its own temporary directory; it does not accept `manual_env`. Preflight and Borg installation do not use an env file.
 
+9. **Test an isolated restore**. The test restores the archive to a temporary directory and updates textfile metrics:
+
+   ```bash
+   SERVER_ENV=dev ./scripts/test-restore.sh --env dev
+   ```
+
+10. **Extract a backup to a new directory**. Read the [Ukrainian restore runbook](RESTORE_RUNBOOK_UA.md) before switching any data:
+
+    ```bash
+    SERVER_ENV=dev ./scripts/restore.sh --env dev --target /srv/opencloud/data.from-backup
+    ```
+
+    Both scripts decrypt `env.dev.enc` themselves. `restore.sh` retains the archived configuration and service specification in an owner-only `/dev/shm` directory; remove that directory only after it is no longer needed.
+
 When finished or abandoning the manual procedure, remove the temporary file in the same shell:
 
 ```bash

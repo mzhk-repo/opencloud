@@ -1,5 +1,7 @@
 # OpenCloud recovery runbook
 
+For the operator procedure using `restore.sh` and `test-restore.sh`, see the [Ukrainian recovery runbook](RESTORE_RUNBOOK_UA.md).
+
 ## Restore a Borg backup
 
 This procedure targets the `opencloud` **dev** stack on its Swarm manager and sole `storage=primary` node. It replaces live state and needs an approved maintenance window; production requires separate authorization and the correct production environment, repository and service. Run as an operator with the privileges needed to restore ownership and xattrs. Stop backups, deployments, upgrades and external schedulers for the entire procedure. Ensure no other process writes to the data tree or Borg repository.

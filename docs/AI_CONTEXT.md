@@ -36,6 +36,7 @@ Target official `opencloudeu/opencloud:9.1.1` production image (dev upgrade pend
 - Local Compose defaults to Entra on port 9200; `docker-compose.internal.yml` switches the same instance to its internal IdP. The main instance has not yet been validated with Entra and group synchronization.
 - `scripts/reconcile-sops-secrets.sh` prepares versioned Swarm secrets; selects dev/prod from `/etc/environment` and verifies exported `SERVER_ENV`. Environment-specific settings require validation before deployment.
 - `scripts/render-proxy-config.py` generates ignored role mapping and content-based Swarm Config names from Entra group IDs; the planned orchestrator must invoke it before deployment.
+- `scripts/restore.sh` extracts a Borg archive into a new directory and keeps the matching configuration in tmpfs; `scripts/test-restore.sh` checks an isolated extraction and writes restore smoke metrics. The operator switches stopped-service data using `docs/RESTORE_RUNBOOK_UA.md`.
 
 ## Important Documents
 
