@@ -1,5 +1,21 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-24 — Prepare a temporary env for manual commands
+
+- **Context:** Manual script examples need a usable decrypted environment file for the same shell session.
+- **Change:** Documented SOPS decryption into an owner-only tmpfs file, its use by scripts that accept plaintext env files, refresh after changes and cleanup. Clarified that the backup script decrypts its own encrypted input.
+- **Verification:** Reviewed the examples against the script interfaces and checked the documentation diff.
+- **Risks:** The temporary file contains secrets until removed; interrupted sessions require manual cleanup.
+- **Rollback:** Revert the runbook changes and this entry.
+
+## 2026-11-24 — Document manual script commands
+
+- **Context:** Operators need a manual command for each script in the repository.
+- **Change:** Added a dev command index to the scripts runbook, with prerequisites, links to detailed procedures and identification of deployment and backup actions.
+- **Verification:** Compared the index with the files in `scripts/` and reviewed the commands against their interfaces.
+- **Risks:** Commands that install packages, prepare directories, deploy or back up change the target environment; runtime permissions and acceptance remain operator checks.
+- **Rollback:** Remove the manual command index from the scripts runbook and this entry.
+
 ## 2026-11-24 — Add Borg backups with Google Drive copies
 
 - **Context:** Task 6.2 needs a consistent encrypted backup and a retryable offsite copy without a local scheduler.

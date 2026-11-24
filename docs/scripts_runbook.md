@@ -2,6 +2,88 @@
 
 Run commands from the repository root. Identify the target environment before changing state. Keep passwords, decrypted configuration and tokens out of Git, logs and shared terminals.
 
+## Manual script commands
+
+The examples below target the `opencloud` dev stack. Run each command separately, after reading its linked section and satisfying its prerequisites. On the dev host, export `SERVER_ENV=dev`; it must match `/etc/environment` for scripts that validate the host environment. Use the corresponding prod settings only on the prod host with explicit production authorization.
+
+For the commands that accept a plaintext env file, first prepare one in `/dev/shm` in the same shell session. Confirm `/dev/shm` is tmpfs and that the operator has access to the appropriate SOPS age key. This example decrypts the dev file without displaying its contents:
+
+```bash
+findmnt -n -o FSTYPE --mountpoint /dev/shm
+```
+
+Continue only if the output is `tmpfs`:
+
+```bash
+umask 077
+manual_env=$(mktemp /dev/shm/opencloud-env.XXXXXXXX) &&
+  sops --decrypt --input-type dotenv --output-type dotenv env.dev.enc > "$manual_env" || {
+    [[ -z ${manual_env:-} ]] || rm -f -- "$manual_env"
+    unset manual_env
+    echo 'ERROR: temporary environment preparation failed' >&2
+    false
+  }
+```
+
+Continue only if the command succeeds and `manual_env` remains set. The file has owner-only permissions; run the scripts as its owner. After changing the encrypted environment, remove this temporary file and decrypt it again before running scripts that need the new values.
+
+1. **Check a data directory** ([storage preflight](#storage-preflight-category-1a)):
+
+   ```bash
+   ./scripts/preflight-host.sh /srv/opencloud/data
+   ```
+
+2. **Install or check Borg** ([backup prerequisites](#borg-backup-and-google-drive-copy-category-2)). This can install a package when Borg is absent:
+
+   ```bash
+   ./scripts/install-borg.sh
+   ```
+
+3. **Prepare storage and backup directories** ([storage preparation](#prepare-the-storage-directory-category-1b)):
+
+   ```bash
+   SERVER_ENV=dev ORCHESTRATOR_ENV_FILE="$manual_env" ./scripts/init-volumes.sh
+   ```
+
+4. **Generate the group mapping** ([group-to-role configuration](#group-to-role-configuration)). The destination directory must exist:
+
+   ```bash
+   SERVER_ENV=dev python3 scripts/render-proxy-config.py --env-file "$manual_env" > .local/proxy-config.env.tmp && mv .local/proxy-config.env.tmp .local/proxy-config.env
+   ```
+
+5. **Check the Swarm secret** ([secret reconciliation](#opencloud-swarm-secret-category-1b)). This is a dry run; the linked section also documents apply:
+
+   ```bash
+   SERVER_ENV=dev ./scripts/reconcile-sops-secrets.sh -env-file "$manual_env" -environment dev -mapping-file /tmp/opencloud-map.env
+   ```
+
+6. **Check the deployment** ([Swarm orchestration](#swarm-deployment-orchestration-category-1b)). This does not deploy; the linked section gives the apply command:
+
+   ```bash
+   SERVER_ENV=dev ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud ORCHESTRATOR_ENV_FILE="$manual_env" ./scripts/deploy-orchestrator-swarm.sh --check
+   ```
+
+7. **Run the CI deployment adapter manually**. This performs a dev deployment; use the preceding check first and review the [deployment prerequisites](#swarm-deployment-orchestration-category-1b):
+
+   ```bash
+   SERVER_ENV=dev ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud ORCHESTRATOR_ENV_FILE="$manual_env" ./scripts/ci-deploy-swarm.sh
+   ```
+
+8. **Create a backup and copy it to Drive** ([backup procedure](#borg-backup-and-google-drive-copy-category-2)). This temporarily stops a running service:
+
+   ```bash
+   SERVER_ENV=dev STACK_NAME=opencloud ./scripts/backup.sh dev
+   ```
+
+   `backup.sh` reads `env.dev.enc` directly and decrypts it in its own temporary directory; it does not accept `manual_env`. Preflight and Borg installation do not use an env file.
+
+When finished or abandoning the manual procedure, remove the temporary file in the same shell:
+
+```bash
+rm -f -- "$manual_env"
+unset manual_env
+```
+
 ## Storage preflight (category 1a)
 
 `scripts/preflight-host.sh` checks an existing storage directory for a supported filesystem, free space and xattr support. It does not require Docker or SOPS.
@@ -22,8 +104,6 @@ ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
 After review, an authorized dev deployment is started with the same environment and `--deploy --apply`. Traefik and OpenCloud must share the `OPENCLOUD_PROXY_NETWORK` Swarm overlay. The orchestrator creates a missing overlay during deployment; `--check` reports the planned creation without changing it. Set the same network on Traefik, for example `OPENCLOUD_PROXY_NETWORK=cloud_net`. This hop uses HTTP; an unencrypted overlay is accepted with a warning in both environments and exposes traffic to network participants. The network remains if a later deployment step fails. Production additionally requires `--approval-context <approval-id>`; the identifier does not itself grant approval. The shared CI workflow must invoke `scripts/ci-deploy-swarm.sh`, which adapts its environment to these explicit options; CI integration remains a later task.
 
 The orchestrator checks policies and node placement before assigning a missing label, then prepares and checks the data directory, reconciles the secret, deploys, and waits for a healthy service and HTTP 200. It exits nonzero on failure; a failure can leave the node label, an updated stack or a new secret, so inspect the node and service before retrying. The `storage=primary` label can also affect other Swarm services using that placement constraint. It never automatically rolls back data or removes old secrets. No direct production operation is authorized by this documentation.
-
-## Upgrade dev from 7.2.x to 9.1.1
 
 Follow the [9.1.x upgrade guide](upgrade-9.1.x.md). These commands are for the `opencloud` dev stack on its manager and storage node. The requested procedure does not create a backup. After 9.1.1 changes persistent state, switching the image back to 7.2.5 alone is not a verified recovery procedure. Stop on any error; keep the service stopped until the failure is understood. Do not run a second deployment or migration concurrently.
 
@@ -108,11 +188,11 @@ Replace `<container-id>` with that single ID. Wait for completion before retryin
 Run `scripts/init-volumes.sh` on the intended storage node, before preflight. Its exported `SERVER_ENV` must match the single `dev` or `prod` value in `/etc/environment`. `ORCHESTRATOR_ENV_FILE` must point to an owner-only plaintext dotenv prepared securely by the deployment process; it may contain `OPENCLOUD_DATA_PATH`, `OPENCLOUD_UID`, and `OPENCLOUD_GID`. Defaults are `/srv/opencloud/data`, `1000`, and `1000`. The Swarm stack uses the same variables. The script does not decrypt SOPS files or execute dotenv contents.
 
 ```bash
-ORCHESTRATOR_ENV_FILE=/path/to/owner-only.env ./scripts/init-volumes.sh
+ORCHESTRATOR_ENV_FILE="$manual_env" ./scripts/init-volumes.sh
 ./scripts/preflight-host.sh /srv/opencloud/data
 ```
 
-If a custom data path is configured, pass the same path to preflight. The script creates a missing directory with mode `0700` and the requested owner; it checks an existing directory without changing it or its contents. A mismatch stops execution for manual review. The caller needs the necessary filesystem privileges; do not reinitialize or recursively change ownership of existing OpenCloud data. Keep decrypted dotenv files out of Git and remove them when no longer needed.
+Prepare `manual_env` as shown in [manual script commands](#manual-script-commands). If a custom data path is configured, pass the same path to preflight. The script creates a missing directory with mode `0700` and the requested owner; it checks an existing directory without changing it or its contents. A mismatch stops execution for manual review. The caller needs the necessary filesystem privileges; do not reinitialize or recursively change ownership of existing OpenCloud data. Keep decrypted dotenv files out of Git and remove them when no longer needed.
 
 ## Group-to-role configuration
 
