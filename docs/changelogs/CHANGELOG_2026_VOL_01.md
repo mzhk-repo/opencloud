@@ -1,5 +1,21 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-24 — Document operations and architecture
+
+- **Context:** Task 6.5 consolidates operator procedures while retaining the existing recovery runbooks.
+- **Change:** Documented dev deployment, service rollback, Swarm Secret lifecycle, Space Manager assignment, offboarding and limitations; expanded README architecture and stack; aligned script instructions, AI context and roadmap.
+- **Verification:** Compared all ten scripts with the manual command index, reviewed configuration and existing recovery evidence, and checked the documentation diff for whitespace errors.
+- **Risks:** Service rollback has not been rehearsed against this runbook; clean-node recovery and end-user downtime remain unverified. No live services or secrets were changed.
+- **Rollback:** Revert this documentation entry and the associated task 6.5 documentation edits, preserving earlier recovery records.
+
+## 2026-11-24 — Record the dev disaster recovery restore
+
+- **Context:** The owner restored the latest Borg archive onto the clean dev state and reported that the service works with no observed losses.
+- **Change:** Recorded the completed data switch and retained recovery directories in the roadmap.
+- **Verification:** The service was `1/1` and healthy; HTTPS returned `200`. The archive configuration matched SOPS and the attached Swarm Secret; image, mounts, environment and Swarm Config references matched the archived service. One restored file matched archive contents and had `user.oc.id`. The owner confirmed Entra user sign-in, Space access and existing public links.
+- **Risks:** The file check is a sample. Clean-node SOPS recovery and measured RTO/RPO remain unverified. Keep the preserved data trees until the owner approves their removal.
+- **Rollback:** Revert the roadmap update and this entry; no live state was changed by this documentation update.
+
 ## 2026-11-24 — Prepare a clean dev disaster recovery drill
 
 - **Context:** The owner requested dedicated restore and restore-smoke scripts, metrics, a Ukrainian operator runbook, and replacement of the dev container with a clean instance before restoring the latest backup.

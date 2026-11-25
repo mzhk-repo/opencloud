@@ -51,7 +51,7 @@ Continue only if the command succeeds and `manual_env` remains set. The file has
    SERVER_ENV=dev python3 scripts/render-proxy-config.py --env-file "$manual_env" > .local/proxy-config.env.tmp && mv .local/proxy-config.env.tmp .local/proxy-config.env
    ```
 
-5. **Check the Swarm secret** ([secret reconciliation](#opencloud-swarm-secret-category-1b)). This is a dry run; the linked section also documents apply:
+5. **Check the Swarm secret** ([secret reconciliation](#opencloud-swarm-secret-category-1b)). This dry run uses the decrypted env prepared in `/dev/shm`, validates the decoded YAML in a private tmpfs directory, and makes no Swarm changes. The linked section also documents apply:
 
    ```bash
    SERVER_ENV=dev ./scripts/reconcile-sops-secrets.sh -env-file "$manual_env" -environment dev -mapping-file /tmp/opencloud-map.env
@@ -118,6 +118,8 @@ ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
 After review, an authorized dev deployment is started with the same environment and `--deploy --apply`. Traefik and OpenCloud must share the `OPENCLOUD_PROXY_NETWORK` Swarm overlay. The orchestrator creates a missing overlay during deployment; `--check` reports the planned creation without changing it. Set the same network on Traefik, for example `OPENCLOUD_PROXY_NETWORK=cloud_net`. This hop uses HTTP; an unencrypted overlay is accepted with a warning in both environments and exposes traffic to network participants. The network remains if a later deployment step fails. Production additionally requires `--approval-context <approval-id>`; the identifier does not itself grant approval. The shared CI workflow must invoke `scripts/ci-deploy-swarm.sh`, which adapts its environment to these explicit options; CI integration remains a later task.
 
 The orchestrator checks policies and node placement before assigning a missing label, then prepares and checks the data directory, reconciles the secret, deploys, and waits for a healthy service and HTTP 200. It exits nonzero on failure; a failure can leave the node label, an updated stack or a new secret, so inspect the node and service before retrying. The `storage=primary` label can also affect other Swarm services using that placement constraint. It never automatically rolls back data or removes old secrets. No direct production operation is authorized by this documentation.
+
+## Upgrade dev from 7.2.x to 9.1.1
 
 Follow the [9.1.x upgrade guide](upgrade-9.1.x.md). These commands are for the `opencloud` dev stack on its manager and storage node. The requested procedure does not create a backup. After 9.1.1 changes persistent state, switching the image back to 7.2.5 alone is not a verified recovery procedure. Stop on any error; keep the service stopped until the failure is understood. Do not run a second deployment or migration concurrently.
 
@@ -218,7 +220,7 @@ python3 scripts/render-proxy-config.py --env-file env.dev.enc > .local/proxy-con
   mv .local/proxy-config.env.tmp .local/proxy-config.env
 ```
 
-The script writes `OPENCLOUD_PROXY_CONFIG_FILE` (default `./.local/proxy.yaml`) and emits only content-based Swarm Config names to the mapping file. For prod, use `env.prod.enc` on the prod host. The script also accepts an owner-only plaintext dotenv via `--env-file`, or exported group IDs when the option is omitted. Pass `.local/proxy-config.env` and the secret mapping to the deployment process. The planned orchestrator must invoke this script; the existing repository does not yet have a CI/CD workflow.
+The script writes `OPENCLOUD_PROXY_CONFIG_FILE` (default `./.local/proxy.yaml`) and emits only content-based Swarm Config names to the mapping file. For prod, use `env.prod.enc` on the prod host. The script also accepts an owner-only plaintext dotenv via `--env-file`, or exported group IDs when the option is omitted. Pass `.local/proxy-config.env` and the secret mapping to the deployment process. The orchestrator invokes this script during deployment; the shared CI/CD workflow is not yet connected.
 
 ## OpenCloud Swarm secret (category 1b)
 

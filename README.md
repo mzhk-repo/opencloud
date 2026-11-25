@@ -1,14 +1,37 @@
 # OpenCloud storage
 
-Phase 1 plans a university file store using OpenCloud, PosixFS and Microsoft Entra ID. See [the specification](docs/SPEC.md) and [implementation roadmap](docs/ROADMAP.md) for requirements and acceptance criteria.
+OpenCloud provides a university file store using PosixFS and Microsoft Entra ID. See [the specification](docs/SPEC.md) and [implementation roadmap](docs/ROADMAP.md) for requirements and acceptance criteria.
+
+## Architecture and technology stack
+
+```text
+Browser -- HTTPS --> Cloudflare Tunnel --> Traefik --> Swarm overlay --> OpenCloud :9200
+   |                                                                    |
+   +--------------------- Microsoft Entra ID (OIDC) ---------------------+
+                                                                        |
+                                     PosixFS data on the storage node <--+
+                                     Borg local repository --> rclone --> Google Drive
+                                     backup/restore metrics --> Node Exporter textfile directory
+SOPS + age encrypted env --> deployment scripts --> versioned Swarm Secret and Configs
+```
+
+- **Application and runtime:** the official `opencloudeu/opencloud:9.1.1` image runs as a non-root, single-replica Docker Swarm service. The orchestrator runs on the Swarm manager and requires that node to hold `storage=primary`. Docker Compose provides a separate loopback-only local development setup. The stack and scripts are the source of truth for runtime settings.
+- **Network:** Cloudflare Tunnel and Traefik route public HTTPS to OpenCloud. The Traefik-to-service overlay uses HTTP; an unencrypted overlay exposes traffic to network participants. The built-in proxy healthcheck checks internal reachability, not end-to-end user access.
+- **Identity and access:** Microsoft Entra ID supplies OIDC and group claims. OpenCloud provisions accounts on login and maps the configured admin and staff group IDs to roles. Missing group claims can remove synchronized memberships; see [known limitations](docs/RUNBOOK.md#known-limitations).
+- **Persistent state:** PosixFS uses the host bind mount `OPENCLOUD_DATA_PATH` (default `/srv/opencloud/data`) on an ext4 or XFS filesystem with user xattrs. The data tree also contains identity, NATS JetStream and Bleve search state; no external database is defined by this stack. New project Spaces have a configured default quota of 1,000,000,000 bytes; existing Spaces are unaffected.
+- **Configuration and secrets:** SOPS and age protect environment files. Deployment validates `OPENCLOUD_YAML_B64` in `/dev/shm` and uses a content-addressed Swarm Secret for `opencloud.yaml`; generated group mapping and Entra CSP settings are Swarm Configs. Preserve the matching configuration, age key and backup credentials separately for recovery.
+- **Backup and observability:** Borg creates an encrypted local repository; rclone copies it to a dated Google Drive directory. Local retention is 7 daily, 4 weekly and 6 monthly; one completed offsite copy is retained. Backup and isolated restore smoke scripts write Node Exporter textfile metrics. There is no timer or cron in this repository; an external scheduler or operator must invoke them.
+- **Delivery:** shell and Python scripts prepare storage, validate and deploy the stack. The CI adapter exists; shared CI/CD integration remains task 6.6.
+
+The owner confirmed the dev restore, Entra login, Space access and existing public links. This does not establish production acceptance or a clean-node recovery; see the [recovery runbook](docs/RESTORE_RUNBOOK_UA.md) and [roadmap](docs/ROADMAP.md).
 
 ## Repository
 
-- `docs/`: requirements, roadmap, AI context and changelog volumes.
-- `scripts/`: planned host checks, deployment and backup scripts.
-- `config/`: planned static service configuration.
-- `.github/workflows/`: reserved for the shared CI/CD workflow.
-- `.env.example`: image repository and version; contains no secrets.
+- `docs/`: requirements, roadmap, [operator runbook](docs/RUNBOOK.md), [script commands](docs/scripts_runbook.md), recovery procedure and changelog volumes.
+- `scripts/`: host preparation, deployment, backup and restore tools.
+- `config/`: configuration templates and the Entra CSP settings.
+- `docker-stack.yml`, `docker-compose*.yml`: Swarm deployment and local development definitions.
+- `.env.example` and `config/sops-env.example`: non-secret configuration examples.
 
 ## Local development
 
@@ -44,7 +67,7 @@ For an existing 7.2.x installation, follow the [9.1.1 Swarm upgrade procedure](d
 
 ## SOPS and Swarm secret preparation
 
-`.sops.yaml` uses the same public age recipient as SMTP2Graph for both dev and prod. Anyone with its private key can decrypt both environments; keep the key outside the repository and retain a separate recovery copy. `env.dev.enc` and `env.prod.enc` contain encrypted placeholders and must be populated with the appropriate values before use. Use `config/sops-env.example` as a field reference. Store each environment's `opencloud.yaml` in `OPENCLOUD_YAML_B64`; see [the scripts runbook](docs/scripts_runbook.md) for writing and checking the value without exposing it. Never save the decrypted configuration in the repository, and never run `opencloud init` over existing state.
+`.sops.yaml` uses the same public age recipient as SMTP2Graph for both dev and prod. Anyone with its private key can decrypt both environments; keep the key outside the repository and retain a separate recovery copy. Verify that `env.dev.enc` or `env.prod.enc` contains the required environment-specific values before use. Use `config/sops-env.example` as a field reference. Store each environment's `opencloud.yaml` in `OPENCLOUD_YAML_B64`; see [the scripts runbook](docs/scripts_runbook.md) for writing and checking the value without exposing it. Never save the decrypted configuration in the repository, and never run `opencloud init` over existing state.
 
 The host must have exactly one literal `SERVER_ENV=dev` or `SERVER_ENV=prod` in `/etc/environment`, and the same value exported to the script. The script decodes the configuration into tmpfs and requires Python 3 with PyYAML to validate it. Encrypted filenames must match the host. A plaintext CI dotenv file is accepted only with owner-only permissions; do not use plaintext `env.*.enc` files. Placeholders and empty entries are rejected. With a manager node and a prepared encrypted file, first run a dry run and then, when authorized, apply:
 
@@ -53,7 +76,7 @@ The host must have exactly one literal `SERVER_ENV=dev` or `SERVER_ENV=prod` in 
 ./scripts/reconcile-sops-secrets.sh -env-file env.dev.enc -environment dev -mapping-file /tmp/opencloud-map.env -apply
 ```
 
-Use `env.prod.enc`, `-environment prod`, and `-approval-context <approval-id>` for an explicitly authorized production apply. The identifier records context and does not itself grant approval. Apply requires access to a Swarm manager, creates the content-addressed secret if absent, and atomically updates a mapping containing only its name. It does not deploy a service or remove old secrets. Securely remove temporary plaintext and mapping files when no longer needed. Service startup from the secret and recovery remain to be validated.
+Use `env.prod.enc`, `-environment prod`, and `-approval-context <approval-id>` for an explicitly authorized production apply. The identifier records context and does not itself grant approval. Apply requires access to a Swarm manager, creates the content-addressed secret if absent, and atomically updates a mapping containing only its name. It does not deploy a service or remove old secrets. Securely remove temporary plaintext and mapping files when no longer needed. The dev service and recovery have been exercised; validate the intended environment and recovery point before production use.
 
 ## Swarm stack preparation
 
@@ -61,11 +84,11 @@ Use `env.prod.enc`, `-environment prod`, and `-approval-context <approval-id>` f
 
 Set the image, domain, Entra identifiers and secret name before rendering. `./.local/proxy.yaml` is ignored by Git and is not created by cloning the repository. Generate it on the Swarm manager with `scripts/render-proxy-config.py`; the script validates the two Entra group IDs and emits content-based names for the proxy and CSP Swarm Configs. See [the scripts runbook](docs/scripts_runbook.md) for the preparation commands. The stack uploads these files as Swarm Configs; they must not contain secrets.
 
-Store `ENTRA_ADMIN_GROUP_ID` and `ENTRA_STAFF_GROUP_ID` in each environment's SOPS file; the generator can read them directly with `--env-file`. The existing encrypted environment files are not updated by this change. The deployment orchestrator and CI workflow do not yet exist; task 5.3 must invoke the generator and pass its name-only output to the stack before CI is connected in task 6.6.
+Store `ENTRA_ADMIN_GROUP_ID` and `ENTRA_STAFF_GROUP_ID` in each environment's SOPS file; the generator can read them directly with `--env-file`. The deployment orchestrator invokes the generator and passes its name-only output to the stack. Shared CI integration is planned in task 6.6.
 
 The stack routes through the external `OPENCLOUD_PROXY_NETWORK` overlay (default `proxy-net`) to Traefik's `web` entrypoint. TLS terminates at Cloudflare Tunnel; Traefik and OpenCloud use HTTP on the overlay, and the router sets the external HTTPS forwarding headers. The orchestrator creates the overlay if missing during deployment and accepts an unencrypted overlay in both environments. Configure Traefik to join the same network. On an unencrypted overlay, this hop carries application data and tokens without TLS. Docker overlay encryption protects inter-node traffic and does not provide end-to-end TLS within a node.
 
-The stack uses the built-in `opencloud proxy health` command to check proxy HTTP reachability. The deployment orchestrator currently requires the storage node to be the manager. On deployment it assigns `storage=primary` to that node if no node already has the label; conflicting labels stop the deployment. Prepare the data directory with the correct UID and xattr support, configure Entra and resolve the identity security gates described in the roadmap. CI integration and dev acceptance are later tasks.
+The stack uses the built-in `opencloud proxy health` command to check proxy HTTP reachability. The deployment orchestrator currently requires the storage node to be the manager. On deployment it assigns `storage=primary` to that node if no node already has the label; conflicting labels stop the deployment. Prepare the data directory with the correct UID and xattr support, configure Entra and resolve the identity security gates described in the roadmap. CI integration and remaining acceptance criteria are tracked in the roadmap.
 
 ## Local Entra and internal login
 

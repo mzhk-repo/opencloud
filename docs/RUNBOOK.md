@@ -1,6 +1,103 @@
-# OpenCloud recovery runbook
+# OpenCloud operator runbook
 
 For the operator procedure using `restore.sh` and `test-restore.sh`, see the [Ukrainian recovery runbook](RESTORE_RUNBOOK_UA.md).
+
+## Deploy and roll back dev
+
+Run on the dev Swarm manager from `/opt/opencloud`. Check the target, age key, storage, network, Entra settings, available backup and maintenance window first. Production requires separate authorization and its own host and settings. The apply operation may install Borg, prepare directories and update the node label, secrets, Configs and service; a failure may leave some changes in place.
+
+```bash
+export SERVER_ENV=dev ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development
+export STACK_NAME=opencloud ORCHESTRATOR_ENV_FILE=env.dev.enc
+./scripts/deploy-orchestrator-swarm.sh --check
+```
+
+If the check succeeds and the intended dev change is approved, deploy and inspect the result:
+
+```bash
+./scripts/deploy-orchestrator-swarm.sh --deploy --apply
+docker service ls --filter name=opencloud_opencloud
+docker service ps opencloud_opencloud
+```
+
+Confirm container health, external HTTPS, Entra login, a file download and upload, Space access and public links. `1/1` alone is not acceptance. Stop on failure and inspect the service and deployment output before retrying. The [script runbook](scripts_runbook.md#swarm-deployment-orchestration-category-1b) covers prerequisites and manual commands.
+
+For a service-spec rollback, review the current and previous image and replica count; also assess the previous configuration, mounts and secrets before applying it:
+
+```bash
+docker service inspect opencloud_opencloud --format 'current image={{.Spec.TaskTemplate.ContainerSpec.Image}} replicas={{.Spec.Mode.Replicated.Replicas}}{{if .PreviousSpec}}; previous image={{.PreviousSpec.TaskTemplate.ContainerSpec.Image}} replicas={{.PreviousSpec.Mode.Replicated.Replicas}}{{else}}; no previous specification{{end}}'
+```
+
+If a previous specification exists and is suitable, execute the following and repeat the acceptance checks above:
+
+```bash
+docker service rollback --detach=false opencloud_opencloud
+docker service ps opencloud_opencloud
+```
+
+[Docker service rollback](https://docs.docker.com/reference/cli/docker/service/rollback/) restores the previous service specification, which may include a different replica count, mounts, Configs or secrets. It does not restore persistent data or the SOPS file. After a state migration, use the matching backup and configuration recovery procedure; an image rollback alone may be incompatible.
+
+## Change the OpenCloud Swarm Secret
+
+The secret contains state-coupled `opencloud.yaml`; do not regenerate it with `opencloud init` over existing data. Before a change, retain a usable backup and its matching configuration, and identify the recovery point. The [SOPS procedure](scripts_runbook.md#write-and-verify-the-base64-value) writes and compares a reviewed environment-specific YAML without printing it. Stage any plaintext on owner-only `/dev/shm`, then update the correct SOPS file. A changed YAML hash produces a new secret name; an unchanged value reuses the existing secret.
+
+For dev, set the environment as in the deployment section and run the dry run, then deploy only after reviewing the result:
+
+```bash
+./scripts/reconcile-sops-secrets.sh -env-file env.dev.enc -environment dev -mapping-file /tmp/opencloud-map.env
+./scripts/deploy-orchestrator-swarm.sh --check
+./scripts/deploy-orchestrator-swarm.sh --deploy --apply
+```
+
+The orchestrator applies reconciliation and deploys the new reference. Verify service health and the user checks above; keep the prior secret and matching configuration while rollback or recovery may need them. Remove plaintext staging files when no longer needed.
+
+Old secrets are removed manually only after the owner approves removal and confirms neither recovery nor rollback needs them. Set the exact old name from `docker secret ls`, then inspect references in both current and previous specifications of every service:
+
+```bash
+old_secret='REPLACE_WITH_VERIFIED_OLD_SECRET_NAME'
+docker secret inspect "$old_secret" --format '{{.Spec.Name}}'
+python3 - "$old_secret" <<'PYCODE'
+import json, subprocess, sys
+name = sys.argv[1]
+ids = subprocess.check_output(['docker', 'service', 'ls', '-q'], text=True).split()
+for service_id in ids:
+    service = json.loads(subprocess.check_output(['docker', 'service', 'inspect', service_id]))[0]
+    for field in ('Spec', 'PreviousSpec'):
+        spec = service.get(field) or {}
+        container = spec.get('TaskTemplate', {}).get('ContainerSpec', {})
+        if any(secret.get('SecretName') == name for secret in container.get('Secrets', [])):
+            print(f"{spec.get('Name', service_id)}: {field}")
+PYCODE
+```
+
+Stop if inspection fails or prints any reference. Also check for concurrent deployments and other recovery dependencies. Only after these checks and authorization:
+
+```bash
+docker secret rm "$old_secret"
+```
+
+Never print secret values or full service specifications in shared logs. Internal cryptographic keys are not routinely rotated; changing them requires a separately validated data and identity migration.
+
+## Add a Space Manager
+
+An existing Space Manager or administrator opens the intended Space in the UI, opens its members, finds the already provisioned user or appropriate group, assigns **Can manage**, and confirms the change. Verify access with the recipient and keep at least one other responsible manager. This role can manage members and content; grant it only to an authorized person. See [OpenCloud Space membership](https://docs.opencloud.eu/docs/7.2/user/spaces/add-members/) and [Space roles](https://docs.opencloud.eu/docs/user/roles/space-roles/). Entra group synchronization can affect membership; verify the actual access after login.
+
+## Offboard a user
+
+1. Identify the user, owned personal space, managed Spaces, direct grants and public links. Agree with the data owner on retention, access transfer and replacement managers before removal.
+2. An authorized Entra administrator disables the account or removes applicable access groups and revokes sign-in sessions according to the organization's procedure. Follow [Microsoft's access revocation guidance](https://learn.microsoft.com/en-us/entra/identity/users/users-revoke-access); existing tokens or sessions may remain usable until they expire or are otherwise invalidated.
+3. Verify that sign-in and access have ceased, including existing sessions. Review and revoke direct shares and public links as appropriate; disabling an account does not itself prove that links are inaccessible.
+4. Transfer required Space management and data through supported UI procedures. Accounts and personal spaces can remain after offboarding; delete them only after the owner approves the retention and deletion decision. Record the actions without tokens or personal file contents.
+
+## Known limitations
+
+- Backup stops a running service during archive creation; restore also causes downtime. One dev backup logged a restart request after 18 seconds, but end-to-end user downtime is not measured. Keep a maintenance window and measure it separately.
+- The single storage node is a single point of failure. A local restore was exercised on dev; clean-node recovery and measured RTO/RPO remain unverified.
+- Entra availability is required for Entra login. A second Entra admin is the planned break-glass account; its availability is not established by this runbook. JIT group synchronization can remove manual memberships when claims are absent, and denied users may still be provisioned ([issue #4058](https://github.com/opencloud-eu/opencloud/issues/4058)). Bulk staff assignment depends on the A1 licensing decision.
+- Internal `opencloud.yaml` keys are not routinely rotated. Dev and prod share an age recipient: compromise of its private key affects both.
+- Passwordless public read links are enabled; anyone holding a valid link can read it. An expiry policy is not explicitly set in the stack and must be verified before relying on it. Writable public links require a password.
+- Offboarded accounts and personal spaces require an explicit retention and cleanup decision. Desktop clients and Google Drive data migration are outside the current scope.
+- The Entra CSP Config is present, but the broader `frame-ancestors` CSP and Drupal AC-5 work is deferred. Do not infer those controls are complete.
 
 ## Restore a Borg backup
 
@@ -149,4 +246,4 @@ file_path='srv/opencloud/data/REPLACE_WITH_EXACT_PATH'
 (cd "$file_stage" && borg extract "$BORG_REPO::$archive" "$file_path")
 ```
 
-Inspect the extracted file privately, then upload it to the appropriate Space through the UI. Do not copy extracted files directly into the live PosixFS tree. Remove the temporary file when it is no longer needed. Archive path names and file contents may be sensitive. This procedure and its mapping from an OpenCloud file to its archive path require a dev rehearsal.
+Inspect the extracted file privately, then upload it to the appropriate Space through the UI. Do not copy extracted files directly into the live PosixFS tree. Remove the temporary file when it is no longer needed. Archive path names and file contents may be sensitive. One dev archive file was extracted and the owner reported a successful UI upload. Mapping a different UI file to its archive path requires operator investigation.
