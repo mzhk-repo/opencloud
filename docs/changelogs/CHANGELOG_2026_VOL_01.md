@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-25 — Prepare OpenCloud metrics endpoint
+
+- **Context:** The monitoring concept requires an internal Prometheus endpoint and Node Exporter textfile metrics.
+- **Change:** Enabled the proxy debug listener on port 9205 without a host port or Traefik route; aligned the monitoring concept with existing backup and restore smoke metrics and network constraints.
+- **Verification:** Checked OpenCloud 9.1.1 upstream metric and debug-server source and validated the stack configuration locally.
+- **Risks:** The shared overlay can reach the unauthenticated masked `/config` endpoint as well as metrics. Scraping, alerting and endpoint behavior remain unverified in the live environment.
+- **Rollback:** Remove `PROXY_DEBUG_ADDR` from the stack and revert the associated documentation changes.
+
 ## 2026-11-25 — Prepare shared CI/CD integration
 
 - **Context:** Task 6.6 connects OpenCloud to the shared Swarm workflow using the official image.
