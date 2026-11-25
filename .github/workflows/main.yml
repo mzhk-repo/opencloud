@@ -1,0 +1,121 @@
+---
+name: OpenCloud CI/CD
+
+on:
+  push:
+    branches: [dev, main]
+    paths-ignore:
+      - '**/*.md'
+      - '.env.example'
+      - '.gitignore'
+  pull_request:
+    branches: [dev, main]
+    paths-ignore:
+      - '**/*.md'
+      - '.env.example'
+      - '.gitignore'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: read
+
+jobs:
+  deploy-change-check:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_allowed: ${{ steps.check.outputs.deploy_allowed }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Identify deployment changes
+        id: check
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == release ]]; then
+            base=$(git describe --tags --match 'v[0-9]*' --abbrev=0 "${HEAD_SHA}^" 2>/dev/null || true)
+            if [[ -z "$base" ]]; then
+              base=$(git hash-object -t tree /dev/null)
+            fi
+          elif [[ "$EVENT_NAME" == push ]]; then
+            base=$BEFORE_SHA
+            if [[ "$base" =~ ^0+$ ]]; then
+              base=$(git hash-object -t tree /dev/null)
+            fi
+          else
+            base=$BASE_SHA
+          fi
+          git diff --no-renames --name-only -z "$base" "$HEAD_SHA" > "$RUNNER_TEMP/changed-files"
+          deploy_allowed=false
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              docker-stack.yml|env.dev.enc|env.prod.enc|.sops.yaml|\
+              config/entra-csp.yaml|.github/workflows/*|\
+              scripts/ci-deploy-swarm.sh|scripts/deploy-orchestrator-swarm.sh|\
+              scripts/init-volumes.sh|scripts/install-borg.sh|\
+              scripts/reconcile-sops-secrets.sh|scripts/render-proxy-config.py)
+                deploy_allowed=true ;;
+            esac
+          done < "$RUNNER_TEMP/changed-files"
+          echo "deploy_allowed=$deploy_allowed" >> "$GITHUB_OUTPUT"
+          echo "Deployment allowed: $deploy_allowed"
+
+  deploy-dev:
+    needs: deploy-change-check
+    if: |
+      (github.event_name == 'pull_request' && github.base_ref == 'dev') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev')
+    uses: mzhk-repo/shared-workflows/.github/workflows/shared-ci-cd-swarm.yml@main
+    with:
+      environment_name: development
+      deploy: ${{ github.event_name == 'push' && needs.deploy-change-check.outputs.deploy_allowed == 'true' }}
+      build_and_push_docker: false
+      docker_image_name: opencloud
+      orchestration_script_path: scripts/ci-deploy-swarm.sh
+      infra_repo_path: /opt/Ansible
+    secrets:
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+      SERVER_SSH_PORT: ${{ secrets.SERVER_SSH_PORT }}
+      SSH_HOST_KEY_PUB: ${{ secrets.SSH_HOST_KEY_PUB }}
+      DEPLOY_PROJECT_DIR: ${{ secrets.DEPLOY_PROJECT_DIR }}
+      SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+  deploy-prod:
+    needs: deploy-change-check
+    if: |
+      (github.event_name == 'pull_request' && github.base_ref == 'main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v'))
+    uses: mzhk-repo/shared-workflows/.github/workflows/shared-ci-cd-swarm.yml@main
+    with:
+      environment_name: production
+      deploy: ${{ github.event_name == 'release' && needs.deploy-change-check.outputs.deploy_allowed == 'true' }}
+      build_and_push_docker: false
+      docker_image_name: opencloud
+      orchestration_script_path: scripts/ci-deploy-swarm.sh
+      infra_repo_path: /opt/Ansible
+      approval_context: ${{ vars.OPENCLOUD_APPROVAL_CONTEXT }}
+    secrets:
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+      SERVER_SSH_PORT: ${{ secrets.SERVER_SSH_PORT }}
+      SSH_HOST_KEY_PUB: ${{ secrets.SSH_HOST_KEY_PUB }}
+      DEPLOY_PROJECT_DIR: ${{ secrets.DEPLOY_PROJECT_DIR }}
+      SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}

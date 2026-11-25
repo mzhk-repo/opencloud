@@ -533,14 +533,15 @@ CI/CD підключається останнім кроком проєкту (�
 - **Ціль:** `.github/workflows/main.yml` підключає централізований reusable workflow, репозиторій не описує логіку деплою з нуля.
 - **Залежності:** 6.5
 - **Кроки реалізації:**
-  1. Викликати `mzhk-repo/shared-workflows/.github/workflows/shared-ci-cd.yml@main`.
+  1. Викликати `mzhk-repo/shared-workflows/.github/workflows/shared-ci-cd-swarm.yml@main`.
   2. Тригери: `push` і `pull_request` у `dev` та `main`; `release` (published); ігнорувати `.md`, `.env.example`, `.gitignore` та інші файли, що не впливають на рантайм.
   3. Джоба `deploy-change-check`: за `git diff` виставляє `deploy_allowed=true`, якщо змінено файли рантайму чи інфраструктури (скрипти бекапів і словники ігнорувати).
   4. `deploy-dev` (`environment_name: development`): `push` у `dev` або зворотний PR `main -> dev`, за `deploy_allowed == 'true'`.
   5. `deploy-prod` (`environment_name: production`): на PR і `push` у `main` лише перевірки (`deploy: false`); деплой тільки при релізі з тегом `v*` та `deploy_allowed == 'true'`.
-  6. `with`: `orchestration_script_path: 'scripts/ci-deploy-swarm.sh'`, `docker_image_name`, `build_and_push_docker: false` (офіційний образ), `use_ansible: true`, `infra_repo_path: '/opt/Ansible'`.
+  6. `with`: `orchestration_script_path: 'scripts/ci-deploy-swarm.sh'`, `docker_image_name`, `build_and_push_docker: false` (офіційний образ), `infra_repo_path: '/opt/Ansible'`. Спільний Swarm workflow не оголошує `use_ansible` і не запускає Ansible окремим кроком.
   7. `secrets`: `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`, `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_SSH_PORT`, `SSH_HOST_KEY_PUB`, `DEPLOY_PROJECT_DIR`, `SOPS_AGE_KEY` (окремо для кожного середовища).
   8. Перший прод-деплой — релізом `v0.1.0` після успішного dev.
+- **Стан:** workflow підготовлено локально; GitHub Actions і деплой не перевірені. Перед увімкненням деплою потрібно усунути або окремо прийняти ризики shared workflow, описані в [runbook](RUNBOOK.md#shared-cicd), та налаштувати середовища і production approval.
 - **Файли / Директорії:** `.github/workflows/main.yml`
 - **Критерії прийняття (Acceptance Criteria):**
   - [ ] PR перевіряє, але не деплоїть

@@ -2,6 +2,14 @@
 
 For the operator procedure using `restore.sh` and `test-restore.sh`, see the [Ukrainian recovery runbook](RESTORE_RUNBOOK_UA.md).
 
+## Shared CI/CD
+
+The caller workflow uses the shared Swarm workflow and the official OpenCloud image. Pull requests and pushes to `main` run checks only; runtime changes pushed to `dev` can deploy development. A published `v*` release can deploy production when runtime files differ from the nearest reachable earlier `v` tag. For the first release, the comparison uses the empty tree. This comparison does not establish which revision is actually deployed; review the release and target state before publishing.
+
+Configure the nine secrets listed in roadmap task 6.6 for the appropriate GitHub environments, and protect the `production` environment with required reviewers. Set the repository variable `OPENCLOUD_APPROVAL_CONTEXT` to the reviewed approval identifier required by the production orchestrator (8–128 letters, digits, `.`, `_`, `:` or `-`, starting with a letter or digit). The identifier alone is not an approval. Ensure the remote noninteractive SSH session exports the correct `SERVER_ENV` matching `/etc/environment`, and that the remote host satisfies the orchestrator prerequisites.
+
+**Before enabling deployment**, review the shared workflow: it checks out a Git revision on the remote host, places decrypted environment data and an age key at fixed `/tmp` paths, and includes the age key in the remote SSH command arguments. These behaviors conflict with the manual Git workflow and the project's preference for owner-only tmpfs staging; command arguments may expose the key to other local processes. Resolve them in the shared workflow or explicitly accept the risks before running deployment. A failed deployment may leave partial infrastructure changes. The workflow and GitHub environment protections have not been exercised for this project.
+
 ## Deploy and roll back dev
 
 Run on the dev Swarm manager from `/opt/opencloud`. Check the target, age key, storage, network, Entra settings, available backup and maintenance window first. Production requires separate authorization and its own host and settings. The apply operation may install Borg, prepare directories and update the node label, secrets, Configs and service; a failure may leave some changes in place.

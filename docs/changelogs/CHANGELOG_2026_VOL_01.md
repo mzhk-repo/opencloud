@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-25 — Prepare shared CI/CD integration
+
+- **Context:** Task 6.6 connects OpenCloud to the shared Swarm workflow using the official image.
+- **Change:** Added the caller workflow and runtime-change gate; documented event behavior, production approval prerequisites and shared workflow risks.
+- **Verification:** YAML lint, workflow structure and embedded shell syntax were checked locally; the referenced shared workflow on GitHub matched the local copy.
+- **Risks:** GitHub Actions and live deployment are unverified. The shared workflow uses remote Git checkout, fixed plaintext paths and passes the age key in SSH arguments; address these before enabling deployment.
+- **Rollback:** Remove the caller workflow and revert the task 6.6 documentation and this entry.
+
 ## 2026-11-24 — Document operations and architecture
 
 - **Context:** Task 6.5 consolidates operator procedures while retaining the existing recovery runbooks.
