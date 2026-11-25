@@ -115,7 +115,14 @@ ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
   ORCHESTRATOR_ENV_FILE=env.dev.enc ./scripts/deploy-orchestrator-swarm.sh --check
 ```
 
-After review, an authorized dev deployment is started with the same environment and `--deploy --apply`. Traefik and OpenCloud must share the `OPENCLOUD_PROXY_NETWORK` Swarm overlay. The orchestrator creates a missing overlay during deployment; `--check` reports the planned creation without changing it. Set the same network on Traefik, for example `OPENCLOUD_PROXY_NETWORK=cloud_net`. This hop uses HTTP; an unencrypted overlay is accepted with a warning in both environments and exposes traffic to network participants. The network remains if a later deployment step fails. Production additionally requires `--approval-context <approval-id>`; the identifier does not itself grant approval. The shared CI workflow must invoke `scripts/ci-deploy-swarm.sh`, which adapts its environment to these explicit options; CI integration remains a later task.
+`--check` does not compare or update the running service. After review, apply an authorized dev deployment:
+
+```bash
+ORCHESTRATOR_MODE=swarm ENVIRONMENT_NAME=development STACK_NAME=opencloud \
+  ORCHESTRATOR_ENV_FILE=env.dev.enc ./scripts/deploy-orchestrator-swarm.sh --deploy --apply
+```
+
+Traefik and OpenCloud must share the `OPENCLOUD_PROXY_NETWORK` Swarm overlay. The orchestrator creates a missing overlay during deployment; `--check` reports the planned creation without changing it. Set the same network on Traefik, for example `OPENCLOUD_PROXY_NETWORK=cloud_net`. This hop uses HTTP; an unencrypted overlay is accepted with a warning in both environments and exposes traffic to network participants. The network remains if a later deployment step fails. Production additionally requires `--approval-context <approval-id>`; the identifier does not itself grant approval. The shared CI workflow must invoke `scripts/ci-deploy-swarm.sh`, which adapts its environment to these explicit options; CI integration remains a later task.
 
 The orchestrator checks policies and node placement before assigning a missing label, then prepares and checks the data directory, reconciles the secret, deploys, and waits for a healthy service and HTTP 200. It exits nonzero on failure; a failure can leave the node label, an updated stack or a new secret, so inspect the node and service before retrying. The `storage=primary` label can also affect other Swarm services using that placement constraint. It never automatically rolls back data or removes old secrets. No direct production operation is authorized by this documentation.
 

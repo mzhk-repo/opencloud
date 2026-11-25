@@ -192,6 +192,7 @@ if [[ "$operation" == check ]]; then
   [[ "$network_exists" == true ]] || log "deployment will create Swarm overlay network $OPENCLOUD_PROXY_NETWORK"
   [[ -n "$node_list" ]] || log 'deployment will assign storage=primary to this manager'
   log 'check passed; no data directory, Swarm Secret or service was changed'
+  log 'to deploy, rerun with the same environment and --deploy --apply (production also requires --approval-context)'
   exit 0
 fi
 

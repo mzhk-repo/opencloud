@@ -1,5 +1,13 @@
 # CHANGELOG 2026 VOL 01
 
+## 2026-11-25 — Clarify the deployment check
+
+- **Context:** A successful `--check` was mistaken for a deployment after a runtime change.
+- **Change:** Added a next-step message and an explicit dev apply command to the script runbook; the check remains non-mutating.
+- **Verification:** Reviewed the check and deploy branches and checked shell syntax.
+- **Risks:** The check does not compare the running service with the stack file or prove that a deployment succeeded.
+- **Rollback:** Remove the next-step message, runbook example and this entry.
+
 ## 2026-11-25 — Prepare OpenCloud metrics endpoint
 
 - **Context:** The monitoring concept requires an internal Prometheus endpoint and Node Exporter textfile metrics.
